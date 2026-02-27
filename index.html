@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Le Journalisme - Cahier de Révisions</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        /* --- QUIZ TYPES --- */
+        .quiz-select {
+            width: 100%; padding: 15px; font-size: 1rem;
+            border: 2px solid var(--card-border); border-radius: 12px;
+            background: var(--opt-bg); color: var(--texte);
+            margin: 15px 0; cursor: pointer; font-family: 'Inter', sans-serif;
+        }
+        .quiz-select.success { background-color: #dcfce7; border-color: #166534; color: #166534; }
+        .quiz-select.error { background-color: #fee2e2; border-color: #991b1b; color: #991b1b; }
+
+        .drag-container { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px; }
+        .drag-item {
+            padding: 12px 20px; background: var(--opt-bg); border: 2px solid var(--violet);
+            border-radius: 10px; cursor: grab; font-weight: 600; transition: transform 0.2s;
+            touch-action: none; user-select: none;
+        }
+        .drag-item:active { cursor: grabbing; transform: scale(0.95); }
+        .drag-item.success { background: #dcfce7; border-color: #166534; color: #166534; }
+        .drag-item.error { background: #fee2e2; border-color: #991b1b; color: #991b1b; }
+
+        .drop-zone {
+            width: 100%; min-height: 100px; border: 3px dashed var(--card-border);
+            border-radius: 12px; background: var(--highlight-bg);
+            display: flex; align-items: center; justify-content: center;
+            margin: 15px 0; color: var(--texte-sec); font-weight: bold; transition: background 0.3s;
+        }
+        .drop-zone.dragover { background: #e0e7ff; border-color: var(--bleu); }
+        .drop-zone.success { background: #dcfce7; border-style: solid; border-color: #166534; }
+        .drop-zone.error { background: #fee2e2; border-style: solid; border-color: #991b1b; }
+
+        /* --- FLASHCARDS --- */
+        .flashcards-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px; margin-bottom: 30px;
+        }
+        .flashcard-wrapper { perspective: 1000px; min-height: 320px; }
+        .flashcard {
+            width: 100%; height: 100%; position: relative;
+            transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
+            transform-style: preserve-3d; cursor: pointer;
+        }
+        .flashcard.flipped { transform: rotateY(180deg); }
+        .flashcard-face {
+            position: absolute; width: 100%; height: 100%; backface-visibility: hidden;
+            border-radius: 16px; border: 2px solid var(--card-border);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05); padding: 25px;
+            box-sizing: border-box; display: flex; flex-direction: column;
+        }
+        .flashcard-front {
+            background: var(--nav-bg); align-items: center;
+            justify-content: center; text-align: center;
+        }
+        .flashcard-front .card-icon { font-size: 3.5rem; margin-bottom: 15px; }
+        .flashcard-front h2 { margin: 0; color: var(--bleu); font-size: 1.5rem; border: none; }
+        .click-hint { font-size: 0.85rem; color: var(--texte-sec); margin-top: auto; opacity: 0.7; font-weight: 600; }
+        .flashcard-back {
+            background: var(--bristol); transform: rotateY(180deg);
+            background-image: linear-gradient(var(--ligne) 1px, transparent 1px);
+            background-size: 100% 2.6rem; line-height: 2.6rem; justify-content: flex-start;
+            overflow: hidden;
+        }
+        .flashcard-back .info-highlight { padding: 8px 15px; margin-top: 10px; line-height: 1.4; }
+
+        :root {
+            --bg: #f8fafc; --bristol: #ffffff; --marge: #fb7185; --ligne: #e2e8f0;
+            --bleu: #2563eb; --violet: #7c3aed; --vert: #10b981; --orange: #f59e0b;
+            --texte: #1e293b; --texte-sec: #334155; --card-border: #e2e8f0;
+            --nav-bg: #ffffff; --nav-text: #1e293b; --highlight-bg: #f1f5f9;
+            --quiz-bg: #ffffff; --opt-bg: #f8fafc; --opt-hover: #eff6ff;
+        }
+        body.dark-mode {
+            --bg: #0f172a; --bristol: #1e293b; --marge: #be123c; --ligne: #334155;
+            --bleu: #60a5fa; --violet: #a78bfa; --vert: #34d399; --orange: #fbbf24;
+            --texte: #f1f5f9; --texte-sec: #cbd5e1; --card-border: #334155;
+            --nav-bg: #1e293b; --nav-text: #f1f5f9; --highlight-bg: #334155;
+            --quiz-bg: #1e293b; --opt-bg: #0f172a; --opt-hover: #1e293b;
+        }
+        body { font-family: 'Inter', 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 20px; color: var(--texte); transition: background 0.3s, color 0.3s; padding-top: 80px; }
+        .container { max-width: 850px; margin: 0 auto; position: relative; }
+
+        .top-bar {
+            position: fixed; top: 0; left: 0; right: 0;
+            background: rgba(255,255,255,0.9); backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--card-border); padding: 10px 20px; z-index: 999;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        body.dark-mode .top-bar { background: rgba(15,23,42,0.9); }
+
+        .score-display { font-weight: 800; font-size: 1.2rem; color: var(--violet); }
+        .theme-toggle { background: transparent; border: 2px solid var(--card-border); color: var(--texte); padding: 5px 10px; border-radius: 20px; cursor: pointer; }
+
+        .main-title { text-align: center; font-size: 2.6rem; font-weight: 900; margin: 20px 0 8px 0; color: var(--texte); letter-spacing: -0.05em; }
+        .main-subtitle { text-align: center; color: var(--texte-sec); margin-bottom: 30px; font-size: 1.05rem; }
+        .nav-menu { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 30px; justify-content: center; }
+        .nav-btn { padding: 10px 20px; border-radius: 50px; border: 2px solid var(--btn-color); background: var(--nav-bg); color: var(--btn-color); cursor: pointer; font-weight: 700; transition: all 0.2s ease; }
+        .nav-btn:hover, .nav-btn.active { background: var(--btn-color); color: white; transform: translateY(-2px); }
+
+        .trophy-shelf { display: flex; justify-content: center; gap: 15px; margin: 20px 0; flex-wrap: wrap; }
+        .trophy-card { background: var(--bristol); border: 2px solid var(--card-border); padding: 10px; border-radius: 12px; text-align: center; width: 90px; opacity: 0.2; filter: grayscale(1); transition: all 0.5s ease; }
+        .trophy-card.unlocked { opacity: 1; filter: grayscale(0); border-color: var(--orange); transform: scale(1.05); box-shadow: 0 5px 15px rgba(245,158,11,0.2); }
+        .trophy-icon { font-size: 1.8rem; display: block; }
+        .trophy-name { font-size: 0.65rem; font-weight: bold; margin-top: 5px; color: var(--texte); }
+
+        .fiche-bristol {
+            background: var(--bristol); border: 1px solid var(--card-border); margin-bottom: 30px;
+            padding: 45px 35px 45px 80px; position: relative;
+            background-image: linear-gradient(var(--ligne) 1px, transparent 1px);
+            background-size: 100% 2.6rem; line-height: 2.6rem; border-radius: 12px;
+        }
+        .fiche-bristol::before { content: ""; position: absolute; top: 0; left: 65px; bottom: 0; width: 2px; background: var(--marge); opacity: 0.6; }
+        .fiche-bristol h2 { margin: 0 0 0.8rem 0; color: var(--bleu); font-size: 1.8rem; border-bottom: 3px solid var(--bleu); display: inline-block; line-height: 1.2; }
+        .badge-info { background: var(--violet); color: white; padding: 4px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: bold; display: inline-block; margin-bottom: 12px; line-height: 1; }
+        .info-highlight { background: var(--highlight-bg); padding: 10px 15px; border-radius: 8px; border-left: 5px solid var(--violet); line-height: 1.5; margin-top: 15px; color: var(--texte); }
+        .vigilance-box { background: #fff1f2; padding: 20px; border-radius: 12px; border-left: 6px solid var(--marge); margin-top: 20px; line-height: 1.6; color: #991b1b; }
+
+        .card-quiz { background: var(--quiz-bg); padding: 30px; border-radius: 16px; border: 1px solid var(--card-border); border-top: 8px solid var(--violet); margin-bottom: 25px; }
+        .quiz-title { font-weight: 700; font-size: 1.1rem; margin-bottom: 20px; }
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .opt-btn { padding: 16px; border: 2px solid var(--card-border); border-radius: 12px; background: var(--opt-bg); cursor: pointer; font-weight: 600; text-align: left; transition: all 0.2s; font-size: 1rem; color: var(--texte); }
+        .opt-btn.success { background: #dcfce7 !important; border-color: #166534 !important; color: #166534 !important; }
+        .opt-btn.error { background: #fee2e2 !important; border-color: #991b1b !important; color: #991b1b !important; }
+        .expli-box { margin-top: 20px; padding: 20px; background: #eff6ff; border-left: 6px solid var(--bleu); border-radius: 8px; display: none; line-height: 1.6; color: #1e293b; }
+
+        .final-score-box { text-align: center; padding: 40px; background: var(--bg); border: 4px dashed var(--violet); border-radius: 20px; margin-top: 40px; display: none; }
+        .big-score { font-size: 3rem; font-weight: 900; color: var(--violet); display: block; margin: 10px 0; }
+
+        /* --- TEXTE LIBRE --- */
+        .text-libre-wrap { display: flex; gap: 10px; align-items: center; margin-top: 15px; flex-wrap: wrap; }
+        .text-libre-input {
+            flex: 1; min-width: 200px; padding: 14px 18px; font-size: 1rem;
+            font-family: 'Inter', sans-serif; border: 2px solid var(--card-border);
+            border-radius: 12px; background: var(--opt-bg); color: var(--texte); transition: border-color 0.2s;
+        }
+        .text-libre-input:focus { outline: none; border-color: var(--violet); }
+        .text-libre-input.success { background: #dcfce7; border-color: #166534; color: #166534; font-weight: 700; }
+        .text-libre-input.error { background: #fee2e2; border-color: #991b1b; color: #991b1b; }
+        .text-libre-btn {
+            padding: 14px 24px; background: var(--violet); color: white;
+            border: none; border-radius: 12px; font-weight: 700; font-size: 1rem;
+            cursor: pointer; white-space: nowrap; transition: opacity 0.2s;
+        }
+        .text-libre-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* --- PHRASE À TROUS --- */
+        .phrase-trous { font-size: 1.1rem; line-height: 2.5; margin: 15px 0; }
+        .trou-input {
+            border: none; border-bottom: 3px solid var(--violet);
+            background: transparent; color: var(--texte); font-size: 1.1rem;
+            font-family: 'Inter', sans-serif; font-weight: 700;
+            width: 130px; text-align: center; outline: none; padding: 4px 8px;
+            transition: border-color 0.2s;
+        }
+        .trou-input:focus { border-bottom-color: var(--bleu); }
+        .trou-input.success { border-bottom-color: #166534; color: #166534; }
+        .trou-input.error { border-bottom-color: #991b1b; color: #991b1b; }
+        .valider-trous-btn {
+            margin-top: 15px; padding: 12px 24px; background: var(--violet); color: white;
+            border: none; border-radius: 12px; font-weight: 700; cursor: pointer; font-size: 1rem;
+        }
+        .valider-trous-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* --- MODE EXAMEN --- */
+        .exam-banner {
+            position: fixed; top: 60px; left: 0; right: 0;
+            background: linear-gradient(135deg, #7c3aed, #2563eb);
+            color: white; text-align: center; padding: 10px 20px;
+            font-weight: 800; font-size: 1rem; z-index: 998;
+            display: flex; justify-content: space-between; align-items: center;
+            box-shadow: 0 4px 15px rgba(124,58,237,0.4);
+        }
+        .exam-timer { font-size: 1.4rem; font-weight: 900; letter-spacing: 2px; font-variant-numeric: tabular-nums; background: rgba(255,255,255,0.2); padding: 4px 16px; border-radius: 30px; }
+        .exam-timer.warning { background: rgba(239,68,68,0.5); animation: pulse 1s infinite; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+        .opt-btn.selected-exam { background: #e0e7ff !important; border-color: #4f46e5 !important; color: #3730a3 !important; font-weight: 800; }
+        body.dark-mode .opt-btn.selected-exam { background: #312e81 !important; border-color: #818cf8 !important; color: #c7d2fe !important; }
+        .quiz-select.selected-exam { background: #e0e7ff; border-color: #4f46e5; color: #3730a3; }
+        .drag-item.selected-exam { background: #e0e7ff; border-color: #4f46e5; color: #3730a3; }
+        .drop-zone.selected-exam { background: #e0e7ff; border-style: solid; border-color: #4f46e5; }
+        .exam-submit-btn {
+            display: block; width: 100%; padding: 20px;
+            background: linear-gradient(135deg, #7c3aed, #2563eb);
+            color: white; font-size: 1.2rem; font-weight: 900;
+            border: none; border-radius: 16px; cursor: pointer;
+            margin-top: 30px; transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 15px rgba(124,58,237,0.3);
+        }
+        .exam-submit-btn:hover { transform: translateY(-3px); }
+        #examModeBtn.active { background: linear-gradient(135deg, #7c3aed, #2563eb) !important; color: white !important; border-color: transparent !important; }
+        .exam-timer-setup { background: var(--bristol); border: 2px solid var(--violet); border-radius: 16px; padding: 30px; margin-bottom: 25px; text-align: center; }
+        .exam-timer-setup h3 { color: var(--violet); margin: 0 0 20px; font-size: 1.4rem; }
+        .timer-options { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 20px; }
+        .timer-opt-btn { padding: 12px 20px; border: 2px solid var(--violet); border-radius: 12px; background: var(--opt-bg); color: var(--violet); font-weight: 700; cursor: pointer; font-size: 1rem; transition: all 0.2s; }
+        .timer-opt-btn.selected, .timer-opt-btn:hover { background: var(--violet); color: white; }
+        body.exam-active { padding-top: 115px; }
+
+        /* --- MODAL --- */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .modal-box { background: var(--bristol); border-radius: 20px; padding: 35px; max-width: 480px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+        .modal-box h3 { margin: 0 0 10px; color: var(--texte); font-size: 1.4rem; }
+        .modal-box p { color: var(--texte-sec); margin: 0 0 20px; line-height: 1.5; }
+        .modal-input { width: 100%; box-sizing: border-box; padding: 14px 18px; border: 2px solid var(--card-border); border-radius: 12px; font-size: 1rem; font-family: 'Inter', sans-serif; background: var(--opt-bg); color: var(--texte); margin-bottom: 20px; }
+        .modal-input:focus { outline: none; border-color: var(--violet); }
+        .modal-btn-row { display: flex; gap: 10px; }
+        .modal-btn-primary { flex: 1; padding: 14px; background: var(--violet); color: white; border: none; border-radius: 12px; font-weight: 700; cursor: pointer; font-size: 1rem; }
+        .modal-btn-secondary { flex: 1; padding: 14px; background: var(--opt-bg); color: var(--texte); border: 2px solid var(--card-border); border-radius: 12px; font-weight: 700; cursor: pointer; font-size: 1rem; }
+        .modal-scores-preview { background: var(--highlight-bg); border-radius: 12px; padding: 15px; margin-bottom: 20px; }
+        .score-line { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--card-border); font-size: 0.9rem; color: var(--texte-sec); }
+        .score-line:last-child { border-bottom: none; }
+        .score-val { font-weight: 800; color: var(--violet); }
+        .score-total { font-weight: 800; color: var(--texte); }
+        .copy-confirm { color: #10b981; font-size: 0.85rem; text-align: center; margin-top: 10px; display: none; font-weight: 700; }
+
+        .score-line { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--card-border); font-size: 0.9rem; color: var(--texte-sec); }
+        .score-line:last-child { border-bottom: none; }
+        .score-val { font-weight: 800; color: var(--violet); }
+        .score-total { font-weight: 800; color: var(--texte); font-size: 1rem; }
+        .score-done { color: var(--vert) !important; }
+        .score-pending { color: #94a3b8 !important; font-style: italic; }
+        .copy-confirm { color: #10b981; font-size: 0.85rem; text-align: center; margin-top: 10px; display: none; font-weight: 700; padding: 10px; background: #dcfce7; border-radius: 8px; }
+        .send-status { text-align: center; padding: 14px; border-radius: 12px; margin-top: 10px; font-weight: 700; display: none; }
+        .send-status.ok  { background: #dcfce7; color: #166534; }
+        .send-status.err { background: #fee2e2; color: #991b1b; }
+        .modal-input-label { font-size: 0.8rem; font-weight: 700; color: var(--texte-sec); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; display: block; }
+        .teacher-email-note { font-size: 0.8rem; color: var(--texte-sec); margin-top: -10px; margin-bottom: 15px; } { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(0.95); opacity: 0.5; } 100% { transform: scale(1); opacity: 1; } }
+        .is-shuffling { animation: shuffleAnim 0.4s ease-out; }
+
+        @media (max-width: 600px) { .btn-grid { grid-template-columns: 1fr; } .main-title { font-size: 2rem; } .fiche-bristol { padding: 30px 20px 30px 50px; } .fiche-bristol::before { left: 40px; } }
+    </style>
+</head>
+<body>
+
+<div class="top-bar">
+    <div class="score-display" id="scoreBoard"></div>
+    <div style="display:flex; gap:10px;">
+        <button class="theme-toggle" id="themeBtn" onclick="toggleTheme()">🌙</button>
+        <button class="theme-toggle" id="examModeBtn" onclick="toggleExamMode()" style="border-color:var(--violet); color:var(--violet); font-weight:bold;">📝 Mode Examen</button>
+        <button class="theme-toggle" onclick="downloadStyledResults()" style="border-color:var(--violet); color:var(--violet); font-weight:bold;">🎓 Bilan</button>
+        <button class="theme-toggle" onclick="openSendModal()" style="border-color:#10b981; color:#10b981; font-weight:bold;">📤 Envoyer</button>
+    </div>
+</div>
+
+<div class="container">
+    <h1 class="main-title">📰 Le Journalisme</h1>
+    <p class="main-subtitle">Comprendre les médias et l'information</p>
+    <div class="nav-menu" id="menu"></div>
+
+    <div class="trophy-shelf" id="trophyShelf">
+        <div class="trophy-card" id="t-first"><span class="trophy-icon">🎯</span><span class="trophy-name">Premier Pas</span></div>
+        <div class="trophy-card" id="t-half"><span class="trophy-icon">🥈</span><span class="trophy-name">Bonne note</span></div>
+        <div class="trophy-card" id="t-perfect"><span class="trophy-icon">🏆</span><span class="trophy-name">Sans Faute</span></div>
+        <div class="trophy-card" id="t-speed"><span class="trophy-icon">⚡</span><span class="trophy-name">Expert</span></div>
+    </div>
+
+    <div id="app">Chargement...</div>
+    <div id="finalResult" class="final-score-box"></div>
+</div>
+
+<button id="backToTop" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Retour en haut" style="display:none; position:fixed; bottom:20px; right:20px; z-index:1000; background-color:#2563eb; color:white; border:none; border-radius:50%; width:50px; height:50px; font-size:20px; cursor:pointer; box-shadow:0 4px 8px rgba(0,0,0,0.2);">↑</button>
+
+<script>
+// ==========================================
+// --- DONNÉES : 5 SECTIONS DE JOURNALISME ---
+// ==========================================
+
+const DATA = {
+
+"✍️ Testez vos connaissances": [
+    { Type:"QCM", Titre:"Mission du journaliste — Quelle est-elle ?", Question:"Quelle est la principale mission d'un journaliste ?", Réponse_A:"Divertir le public à tout prix", Réponse_B:"Collecter, vérifier et transmettre des informations au public", Réponse_C:"Défendre les intérêts d'un parti politique", Réponse_D:"Créer des publicités pour les marques", Bonne_Réponse:"B", Explication:"Le journaliste a pour mission fondamentale d'informer le public en collectant, vérifiant et transmettant des informations fiables. Il doit respecter des principes d'objectivité, d'honnêteté et d'intérêt général." },
+    { Type:"QCM", Titre:"Liberté de la presse — Quel texte la protège en France ?", Question:"Quel article de la Déclaration des Droits de l'Homme protège la liberté de la presse en France ?", Réponse_A:"Article 1 – Égalité des hommes", Réponse_B:"Article 4 – La liberté politique", Réponse_C:"Article 11 – La libre communication des pensées", Réponse_D:"Article 16 – La séparation des pouvoirs", Bonne_Réponse:"C", Explication:"L'article 11 de la DDHC de 1789 garantit la libre communication des pensées et des opinions, fondement juridique de la liberté de la presse en France." },
+    { Type:"DROPDOWN", Titre:"Vocabulaire — Comment s'appelle la vérification par plusieurs sources ?", Question:"Confirmer une information auprès de plusieurs sources indépendantes s'appelle :", Réponse_A:"Le montage", Réponse_B:"Le recoupement des sources", Réponse_C:"La mise en page", Réponse_D:"L'éditorialisation", Bonne_Réponse:"B", Explication:"Le recoupement des sources est une pratique essentielle du journalisme : avant de publier, un journaliste cherche à confirmer une information par au moins deux sources indépendantes." },
+    { Type:"QCM", Titre:"Sigle AFP — Que signifient ces initiales ?", Question:"Que signifie l'acronyme AFP en journalisme ?", Réponse_A:"Association Française de Photographie", Réponse_B:"Agence France-Presse", Réponse_C:"Autorité Française des Publications", Réponse_D:"Agence de Formation des Professionnels", Bonne_Réponse:"B", Explication:"L'Agence France-Presse (AFP) est l'une des plus grandes agences de presse mondiales. Fondée en 1944, elle fournit des dépêches, photos et vidéos à des milliers de médias dans le monde entier." },
+    { Type:"TEXTE_LIBRE", Titre:"Les 5 W — Traduire 'Who' en français", Question:"Les journalistes anglophones structurent l'info avec les '5 W'. Quel mot français correspond à 'Who' ?", Bonne_Réponse:"Qui", Explication:"Les 5 W sont : Who (Qui ?), What (Quoi ?), When (Quand ?), Where (Où ?) et Why (Pourquoi ?). En français, on parle des '5 questions fondamentales'. Tout article d'information répond à ces 5 questions." },
+    { Type:"QCM", Titre:"Fake news — Quelle est la bonne définition ?", Question:"Qu'est-ce qu'une 'fake news' ?", Réponse_A:"Une information très récente publiée en urgence", Réponse_B:"Une fausse information délibérément diffusée pour tromper", Réponse_C:"Une opinion exprimée par un journaliste", Réponse_D:"Un article de presse payant", Bonne_Réponse:"B", Explication:"Une fake news est une fausse information intentionnellement créée et diffusée pour induire en erreur. Elle se distingue de l'erreur journalistique (non intentionnelle) et de la satire (clairement identifiée comme telle)." },
+    { Type:"DRAGDROP", Titre:"Vocabulaire — La 'Une', c'est quelle page ?", Question:"Faites glisser : la 'Une' d'un journal désigne :", Réponse_A:"La page centrale", Réponse_B:"La page de publicité", Réponse_C:"La première page", Réponse_D:"Le supplément week-end", Bonne_Réponse:"C", Explication:"La 'Une' désigne la première page d'un journal ou d'un magazine. C'est la vitrine du journal : elle contient les titres des articles les plus importants et une ou plusieurs photos percutantes." },
+    { Type:"QCM", Titre:"Carte de presse — À quoi sert-elle ?", Question:"Qu'est-ce que la carte de presse en France ?", Réponse_A:"Un abonnement à un journal", Réponse_B:"Un document reconnaissant officiellement le statut de journaliste professionnel", Réponse_C:"Un laissez-passer pour les événements sportifs", Réponse_D:"Une autorisation de photographier dans les lieux publics", Bonne_Réponse:"B", Explication:"La carte de presse est délivrée par la Commission de la carte d'identité des journalistes professionnels (CCIJP). Elle reconnaît officiellement qu'une personne exerce le journalisme comme activité principale et rémunératrice." },
+    { Type:"PHRASE_TROUS", Titre:"Compléter la phrase — Faits vs opinions", Question:"En journalisme, séparer clairement les faits des opinions s'appelle la séparation des ___ journalistiques.", Bonne_Réponse:"genres", Explication:"La séparation des genres journalistiques est un principe fondamental : les informations factuelles (reportage, article d'info) doivent être clairement distinguées des textes d'opinion (éditorial, chronique, tribune). Cela garantit la transparence envers le lecteur." },
+    { Type:"QCM", Titre:"Embargo — Qu'est-ce que c'est ?", Question:"Qu'est-ce qu'un embargo en journalisme ?", Réponse_A:"Une interdiction définitive de publication", Réponse_B:"Une demande de ne pas publier avant une date précise", Réponse_C:"Une censure imposée par le gouvernement", Réponse_D:"Un accord tarifaire entre journaux", Bonne_Réponse:"B", Explication:"Un embargo est une demande faite par une source de ne pas publier une information avant une date ou heure précise. Les journalistes peuvent l'accepter ou le refuser, mais ne doivent pas le violer s'ils l'ont accepté." },
+    { Type:"QCM", Titre:"Source anonyme — Pourquoi le journaliste la protège-t-il ?", Question:"Pourquoi un journaliste peut-il refuser de révéler l'identité d'une de ses sources ?", Réponse_A:"Pour vendre plus d'exemplaires de son journal", Réponse_B:"Pour respecter le secret des sources qui protège ses informateurs", Réponse_C:"Parce que la loi l'interdit totalement", Réponse_D:"Pour éviter de payer des droits d'auteur", Bonne_Réponse:"B", Explication:"Le secret des sources est un droit fondamental du journaliste. Il protège les informateurs qui prennent des risques en transmettant des informations sensibles. La loi française de 2010 garantit ce secret, sauf exceptions très encadrées." },
+    { Type:"QCM", Titre:"Dépêche d'agence — Qui la rédige ?", Question:"Qui rédige les dépêches d'agence utilisées par les journaux et chaînes TV ?", Réponse_A:"Les lecteurs du journal", Réponse_B:"Les journalistes des agences de presse (AFP, Reuters…)", Réponse_C:"Les communicants des entreprises", Réponse_D:"Les rédacteurs en chef des grands journaux", Bonne_Réponse:"B", Explication:"Les agences de presse (AFP, Reuters, Associated Press…) sont des entreprises spécialisées dans la collecte et la diffusion d'informations. Leurs journalistes rédigent des dépêches que les médias abonnés utilisent pour alimenter leur propre rédaction." },
+    { Type:"DROPDOWN", Titre:"Vocabulaire — Comment s'appelle l'auteur de l'éditorial ?", Question:"L'éditorial d'un journal est généralement rédigé par :", Réponse_A:"Un lecteur invité", Réponse_B:"Un pigiste débutant", Réponse_C:"Le rédacteur en chef ou directeur de la rédaction", Réponse_D:"Un correspondant étranger", Bonne_Réponse:"C", Explication:"L'éditorial (ou 'édito') engage la position officielle de toute la rédaction. Il est donc rédigé par le rédacteur en chef ou le directeur de la publication, qui représentent la ligne éditoriale du journal." },
+    { Type:"QCM", Titre:"Présomption d'innocence — Quand s'applique-t-elle ?", Question:"La présomption d'innocence signifie qu'une personne :", Réponse_A:"Est forcément innocente, même condamnée", Réponse_B:"Est considérée comme innocente tant qu'elle n'est pas condamnée par un tribunal", Réponse_C:"Ne peut pas être mentionnée dans la presse", Réponse_D:"Peut refuser d'être interrogée par la police", Bonne_Réponse:"B", Explication:"La présomption d'innocence est un principe fondamental du droit et du journalisme : toute personne est présumée innocente tant qu'un tribunal ne l'a pas condamnée. Les journalistes doivent respecter ce principe, notamment dans les faits divers." },
+    { Type:"DRAGDROP", Titre:"Distinguer info et pub — Lequel n'est PAS du journalisme ?", Question:"Faites glisser : lequel de ces contenus N'EST PAS du journalisme ?", Réponse_A:"Un reportage de terrain", Réponse_B:"Une enquête d'investigation", Réponse_C:"Un publi-rédactionnel payé par une marque", Réponse_D:"Une interview d'expert", Bonne_Réponse:"C", Explication:"Un publi-rédactionnel (ou 'publireportage') est un contenu payé par un annonceur qui ressemble à un article de presse. Ce n'est pas du journalisme car il vise à promouvoir un produit, non à informer objectivement. Il doit obligatoirement être identifié comme publicité." },
+    { Type:"QCM", Titre:"Vérification — Qu'est-ce que le fact-checking ?", Question:"Le 'fact-checking' est :", Réponse_A:"Une technique de mise en page des articles", Réponse_B:"La vérification méthodique de faits, chiffres ou déclarations", Réponse_C:"Un type de journal satirique", Réponse_D:"Un logiciel de traitement de texte journalistique", Bonne_Réponse:"B", Explication:"Le fact-checking (ou vérification des faits) consiste à vérifier rigoureusement l'exactitude de déclarations, statistiques ou informations publiées. Des médias spécialisés comme Les Décodeurs (Le Monde) ou CheckNews (Libération) s'y consacrent." },
+    { Type:"QCM", Titre:"Charte de Munich — Que contient-elle ?", Question:"La charte de Munich (1971) est :", Réponse_A:"Un traité sur les droits d'auteur journalistiques", Réponse_B:"Un texte fondateur définissant les droits et devoirs des journalistes", Réponse_C:"Une loi sur la censure en temps de guerre", Réponse_D:"Un accord entre agences de presse européennes", Bonne_Réponse:"B", Explication:"La charte de Munich est une déclaration des droits et devoirs des journalistes adoptée en 1971. Elle liste 10 devoirs (exactitude, rectification, secret des sources…) et 5 droits (accès aux sources, refus de consignes contraires à l'éthique…). C'est un texte de référence de la déontologie journalistique." },
+    { Type:"TEXTE_LIBRE", Titre:"Vocabulaire — Comment s'appelle un journaliste indépendant payé à l'article ?", Question:"Comment appelle-t-on un journaliste qui travaille en indépendant et est payé à l'article, sans contrat fixe avec un journal ?", Bonne_Réponse:"pigiste|un pigiste", Explication:"Un pigiste est un journaliste indépendant rémunéré à la 'pige', c'est-à-dire à l'article ou au sujet produit, sans être salarié fixe d'une rédaction. Beaucoup de journalistes débutent leur carrière comme pigistes." },
+    { Type:"QCM", Titre:"Le off — Que signifie 'parler off the record' ?", Question:"Quand une source parle 'off the record' à un journaliste, cela signifie :", Réponse_A:"Qu'elle donne l'information uniquement pour enregistrement audio", Réponse_B:"Que l'information est transmise à titre confidentiel et ne peut pas être publiée telle quelle", Réponse_C:"Qu'elle refuse de répondre à toutes les questions", Réponse_D:"Que l'entretien aura lieu en dehors du bureau", Bonne_Réponse:"B", Explication:"Parler 'off the record' (ou 'en off') signifie donner une information à un journaliste à titre confidentiel : le journaliste peut s'en servir pour orienter ses recherches, mais ne peut pas citer la source ni publier directement ce qui lui a été dit." },
+    { Type:"PHRASE_TROUS", Titre:"Compléter la phrase — L'indépendance du journaliste", Question:"Pour garantir son indépendance, un journaliste doit éviter tout ___ d'intérêts avec les sujets qu'il traite.", Bonne_Réponse:"conflit", Explication:"Le conflit d'intérêts est une situation où un journaliste aurait un intérêt personnel (financier, familial, politique…) qui pourrait influencer son traitement d'un sujet. Par exemple, un journaliste ne devrait pas couvrir une entreprise dont il est actionnaire." },
+    { Type:"QCM", Titre:"Le droit de réponse — À qui s'adresse-t-il ?", Question:"En France, qui peut exercer un 'droit de réponse' dans un journal ?", Réponse_A:"Uniquement les personnalités politiques", Réponse_B:"Toute personne nommée ou désignée dans un article qui s'estime mal représentée", Réponse_C:"Seulement les grandes entreprises", Réponse_D:"Uniquement les journalistes de la rédaction", Bonne_Réponse:"B", Explication:"En France, la loi sur la liberté de la presse du 29 juillet 1881 garantit un droit de réponse à toute personne nommée ou désignée dans un journal. Le journal est obligé de publier cette réponse gratuitement." }
+],
+
+"📰 Les types de contenus": [
+    { Type:"COURS", Titre:"La brève — Format court et factuel", Contenu:"La brève est le format le plus court du journalisme. En quelques lignes (2 à 5 maximum), elle donne une information factuelle sur un événement récent. Elle répond aux questions Qui ? Quoi ? Où ? Quand ? sans développer ni analyser.", Points_Vigilance:"Une brève ne contient pas d'opinion ni d'analyse. Elle est purement factuelle et très synthétique. Attention à ne pas la confondre avec une accroche ou un chapeau d'article." },
+    { Type:"QCM", Titre:"Brève vs article — Quelle est la différence principale ?", Question:"Qu'est-ce qui distingue fondamentalement une brève d'un article d'information ?", Réponse_A:"La brève contient des photos, l'article non", Réponse_B:"La brève est courte et factuelle, l'article est développé avec contexte et analyses", Réponse_C:"La brève est écrite par le rédacteur en chef, l'article par un reporter", Réponse_D:"La brève traite de sport, l'article de politique", Bonne_Réponse:"B", Explication:"La brève se limite à quelques lignes pour livrer une information essentielle (Qui, Quoi, Où, Quand), sans développement. L'article d'information va plus loin en apportant contexte, sources citées, données et explications." },
+    { Type:"COURS", Titre:"L'article d'information — Objectivité et rigueur", Contenu:"L'article d'information (ou article de presse) traite un sujet d'actualité de façon approfondie. Il répond aux 5 questions fondamentales (Qui, Quoi, Où, Quand, Pourquoi) et peut inclure des citations de sources, des données chiffrées et un contexte. Il est rédigé de façon neutre et objective.", Points_Vigilance:"Attention à ne pas confondre article d'information et article d'opinion : l'article d'information rapporte des faits vérifiés, sans que le journaliste exprime son point de vue personnel." },
+    { Type:"COURS", Titre:"Le reportage — Observer et témoigner sur le terrain", Contenu:"Le reportage est un récit journalistique produit à partir d'une observation directe sur le terrain. Le journaliste se rend sur les lieux, rencontre des témoins et acteurs, et retranscrit ce qu'il voit et entend. Le reportage peut être écrit, photographique, radio ou télévisé.", Points_Vigilance:"Le journaliste reporter doit être présent sur le terrain. Il ne doit pas inventer ou embellir les faits observés. C'est ce qui distingue le reportage d'une fiction ou d'un récit romancé." },
+    { Type:"QCM", Titre:"Reportage — Quelle est sa condition indispensable ?", Question:"Un journaliste rend compte d'un séisme en décrivant ce qu'il a vu sur place. De quel genre journalistique s'agit-il ?", Réponse_A:"L'éditorial", Réponse_B:"La brève", Réponse_C:"Le reportage", Réponse_D:"La tribune libre", Bonne_Réponse:"C", Explication:"Le reportage implique la présence physique du journaliste sur le terrain. Il témoigne directement de ce qu'il observe. Ce n'est pas une brève (trop courte, pas de terrain), ni un éditorial (genre d'opinion)." },
+    { Type:"COURS", Titre:"L'interview — Donner directement la parole", Contenu:"L'interview est un dialogue entre un journaliste et une personnalité ou un expert, publié sous forme de questions-réponses (Q&R). Elle permet d'approfondir un sujet ou de connaître le point de vue d'un acteur clé. Différents formats existent : interview portrait, interview d'expertise, conférence de presse…" },
+    { Type:"TEXTE_LIBRE", Titre:"Interview — Comment s'appelle ce format question/réponse ?", Question:"Quel genre journalistique est présenté sous forme de questions et réponses entre un journaliste et son interlocuteur ?", Bonne_Réponse:"interview|l'interview|entretien|l'entretien", Explication:"L'interview (ou entretien journalistique) se présente sous la forme classique question/réponse. Elle permet de donner directement la parole à une personnalité ou un expert. Le journaliste prépare ses questions en amont pour orienter l'échange." },
+    { Type:"COURS", Titre:"L'éditorial — La voix officielle du journal", Contenu:"L'éditorial (ou 'édito') est un article d'opinion rédigé par le directeur de la rédaction ou le rédacteur en chef. Il exprime la position officielle du journal sur un sujet d'actualité. Il est clairement identifié comme un texte d'opinion.", Points_Vigilance:"L'éditorial engage toute la rédaction, pas seulement son auteur. Ne pas le confondre avec une chronique (qui engage uniquement son auteur) ou un article d'information (neutre et factuel)." },
+    { Type:"COURS", Titre:"La chronique — Un point de vue régulier et signé", Contenu:"La chronique est un texte d'opinion régulier, signé par un auteur attitré (chroniqueur). Elle peut être humoristique, culturelle, sportive, politique… Le chroniqueur exprime son point de vue personnel avec un style reconnaissable. Elle ne prétend pas à l'objectivité." },
+    { Type:"DRAGDROP", Titre:"Opinion ou information — Lequel est un genre d'OPINION ?", Question:"Faites glisser : lequel de ces formats est un genre d'OPINION ?", Réponse_A:"Le reportage", Réponse_B:"La brève", Réponse_C:"L'éditorial", Réponse_D:"L'article d'information", Bonne_Réponse:"C", Explication:"L'éditorial est un genre d'opinion qui engage la position du journal entier. À l'inverse, le reportage, la brève et l'article d'information sont des genres factuels qui visent l'objectivité et la neutralité." },
+    { Type:"COURS", Titre:"L'enquête journalistique — Investiguer en profondeur", Contenu:"L'enquête journalistique est une investigation approfondie sur un sujet souvent sensible ou caché. Le journaliste multiplie les sources, consulte des documents, recoupe les informations. Une enquête peut prendre plusieurs semaines ou mois. Elle peut révéler des scandales ou des dysfonctionnements (journalisme d'investigation).", Points_Vigilance:"L'enquête est le genre le plus risqué pour le journaliste (pressions, menaces). Elle suppose une rigueur absolue dans la vérification, car ses révélations peuvent avoir des conséquences judiciaires et sociales majeures." },
+    { Type:"COURS", Titre:"Le portrait — Raconter une personnalité", Contenu:"Le portrait est un article centré sur une personnalité. Il combine des informations biographiques, des citations directes, des témoignages de proches et de l'observation directe pour dresser un tableau vivant d'un individu. Le portrait peut être factuel ou plus littéraire." },
+    { Type:"QCM", Titre:"Genres d'opinion — Lequel N'est PAS un texte d'opinion ?", Question:"Lequel de ces genres journalistiques N'exprime PAS l'opinion de son auteur ?", Réponse_A:"La chronique", Réponse_B:"L'éditorial", Réponse_C:"L'article d'information", Réponse_D:"La tribune libre", Bonne_Réponse:"C", Explication:"L'article d'information rapporte des faits vérifiés de façon neutre et objective. La chronique, l'éditorial et la tribune sont tous des genres d'opinion où l'auteur exprime explicitement son point de vue." },
+    { Type:"DROPDOWN", Titre:"Identifier le format court — Lequel est une brève ?", Question:"Une brève journalistique est :", Réponse_A:"Un long article d'investigation en plusieurs parties", Réponse_B:"Une courte information factuelle de quelques lignes", Réponse_C:"Un éditorial humoristique hebdomadaire", Réponse_D:"Un entretien approfondi avec un expert", Bonne_Réponse:"B", Explication:"La brève est le format le plus court du journalisme : quelques lignes pour livrer une information essentielle, sans développement ni analyse. Elle répond aux questions Qui, Quoi, Où, Quand." },
+    { Type:"QCM", Titre:"Enquête d'investigation — En quoi se distingue-t-elle ?", Question:"Qu'est-ce qui caractérise principalement le journalisme d'investigation ?", Réponse_A:"Il se base uniquement sur des sources officielles", Réponse_B:"Il révèle des informations cachées grâce à une recherche approfondie sur plusieurs semaines ou mois", Réponse_C:"Il est toujours réalisé en direct à la télévision", Réponse_D:"Il est interdit en France pour protéger la vie privée", Bonne_Réponse:"B", Explication:"Le journalisme d'investigation (ou enquête) vise à révéler ce que des acteurs veulent cacher au public. Il exige du temps, de nombreuses sources, la consultation de documents et un recoupement minutieux. Des enquêtes célèbres : le Watergate, les Panama Papers, les affaires Mediator…" },
+    { Type:"PHRASE_TROUS", Titre:"Compléter la phrase — Qui rédige l'éditorial ?", Question:"L'éditorial est rédigé par le ___ en chef et exprime la position officielle de toute la rédaction.", Bonne_Réponse:"rédacteur", Explication:"L'éditorial est rédigé par le rédacteur en chef (ou directeur de la publication) et engage la position de toute la rédaction sur un sujet d'actualité. C'est ce qui le distingue de la chronique, qui n'engage que son auteur." },
+    { Type:"QCM", Titre:"La tribune — Qui peut en écrire une ?", Question:"Qu'est-ce qu'une tribune libre dans un journal ?", Réponse_A:"Un article d'information neutre rédigé par la rédaction", Réponse_B:"Un texte d'opinion rédigé par un auteur extérieur à la rédaction (expert, personnalité…)", Réponse_C:"Un résumé des informations de la semaine", Réponse_D:"Un encadré publicitaire déguisé en article", Bonne_Réponse:"B", Explication:"Une tribune libre est un texte d'opinion écrit par une personne extérieure à la rédaction (intellectuel, militant, expert, personnalité…) et publié par le journal. Elle est clairement identifiée comme telle. À distinguer de l'éditorial (rédigé par la rédaction) et de la chronique (régulière et signée)." },
+    { Type:"DRAGDROP", Titre:"Associer format et auteur — Qui rédige le portrait ?", Question:"Faites glisser : un portrait journalistique est centré sur :", Réponse_A:"Un événement politique", Réponse_B:"Un résultat économique", Réponse_C:"Une personnalité individuelle", Réponse_D:"Un produit à vendre", Bonne_Réponse:"C", Explication:"Le portrait journalistique est un article entièrement consacré à une personnalité. Il mêle biographie, citations directes, anecdotes et témoignages pour offrir un tableau vivant et approfondi d'un individu." }
+],
+
+"📺 Les supports": [
+    { Type:"COURS", Titre:"La presse écrite — Quotidiens, hebdos, mensuels", Contenu:"La presse écrite regroupe les journaux et magazines imprimés. On distingue :\n• Les quotidiens (publiés chaque jour) : Le Monde, Le Figaro, Libération, Ouest-France…\n• Les hebdomadaires (chaque semaine) : Le Point, L'Express, Le Canard Enchaîné…\n• Les mensuels (chaque mois) : Sciences & Vie, National Geographic…\n• La presse spécialisée : L'Équipe (sport), Capital (économie), Elle (mode)…" },
+    { Type:"QCM", Titre:"Presse écrite — Quelle est la fréquence d'un quotidien ?", Question:"Combien de fois par semaine paraît un journal quotidien ?", Réponse_A:"Une fois par semaine", Réponse_B:"Une fois par mois", Réponse_C:"Chaque jour (ou presque)", Réponse_D:"Deux fois par an", Bonne_Réponse:"C", Explication:"Un quotidien est publié chaque jour ou presque (généralement du lundi au samedi ou du lundi au dimanche). Exemples français : Le Monde, Le Figaro, Libération, Ouest-France, L'Équipe…" },
+    { Type:"DROPDOWN", Titre:"Vocabulaire — Un journal hebdomadaire, c'est quoi ?", Question:"Un journal publié une fois par semaine s'appelle un :", Réponse_A:"Quotidien", Réponse_B:"Mensuel", Réponse_C:"Hebdomadaire", Réponse_D:"Annuel", Bonne_Réponse:"C", Explication:"Un hebdomadaire paraît chaque semaine (hebdo = semaine en latin). Exemples : Le Point, L'Express, Le Nouvel Obs, Le Canard Enchaîné. À distinguer du quotidien (chaque jour) et du mensuel (chaque mois)." },
+    { Type:"COURS", Titre:"La radio — L'information sonore et immédiate", Contenu:"La radio est un média sonore de diffusion en temps réel. Elle permet une information rapide (flashs d'information, journaux toutes les heures). En France :\n• Les radios publiques : France Inter, France Info, France Culture, RFI…\n• Les radios privées généralistes : RTL, Europe 1, BFM Radio…\n• Les radios musicales avec info : NRJ, Fun Radio…\nLa radio a l'avantage d'être accessible partout (voiture, cuisine) sans nécessiter les yeux.", Points_Vigilance:"Sans images, les journalistes radio doivent créer des images mentales par les mots, les sons et les ambiances sonores (montage son, reportage de terrain)." },
+    { Type:"QCM", Titre:"Radio — Quel est son avantage principal par rapport à la TV ?", Question:"Quel est l'avantage principal de la radio sur les autres médias d'information ?", Réponse_A:"Elle diffuse des images en haute définition", Réponse_B:"Elle est accessible partout et en mobilité, sans nécessiter les yeux", Réponse_C:"Elle permet aux lecteurs d'écrire des articles", Réponse_D:"Elle est toujours gratuite", Bonne_Réponse:"B", Explication:"La radio s'écoute partout : en voiture, à pied, en faisant la cuisine… Elle ne nécessite pas de regarder un écran. C'est son avantage décisif sur la télévision. France Info est la radio d'info continue la plus écoutée de France." },
+    { Type:"COURS", Titre:"La télévision — L'image au service de l'information", Contenu:"La télévision associe image et son pour informer. Les formats télévisés incluent :\n• Les journaux télévisés (JT) : 20h de TF1, 20h de France 2…\n• Les chaînes d'info en continu : BFM TV, CNews, LCI, Franceinfo TV…\n• Les magazines d'information : Complément d'enquête, Envoyé Spécial…\nLa TV est très impactante grâce aux images, mais peut privilégier le spectaculaire au détriment de l'analyse.", Points_Vigilance:"Les images télévisées ont un fort pouvoir émotionnel. Un journaliste TV doit veiller à ne pas utiliser des images choc pour manipuler les émotions du téléspectateur au détriment de l'exactitude." },
+    { Type:"QCM", Titre:"Chaîne d'info — Comment s'appelle ce format TV ?", Question:"Comment appelle-t-on une chaîne de télévision qui diffuse de l'information 24 heures sur 24 ?", Réponse_A:"Une chaîne culturelle", Réponse_B:"Une chaîne d'info en continu", Réponse_C:"Un journal télévisé", Réponse_D:"Une radio-télévision", Bonne_Réponse:"B", Explication:"Une chaîne d'info en continu diffuse des informations 24h/24. En France : BFMTV, CNews, LCI, et Franceinfo. Ces chaînes font une large place aux débats, aux directs et aux breaking news." },
+    { Type:"COURS", Titre:"La presse en ligne — Web et pure players", Contenu:"La presse en ligne publie sur internet, en continu 24h/24. Elle permet :\n• Une mise à jour immédiate de l'information\n• L'intégration de vidéos, sons, infographies et liens hypertexte\n• L'interactivité avec les lecteurs (commentaires, partages)\nExemples : lemonde.fr, lefigaro.fr, mediapart.fr…\nLes pure players sont des médias uniquement numériques, sans version papier : Mediapart, Brut, Konbini…", Points_Vigilance:"La vitesse de publication sur le web peut nuire à la vérification des informations. Attention aux articles non sourcés, non datés ou rédigés sans signature." },
+    { Type:"QCM", Titre:"Pure player — Quelle est sa particularité ?", Question:"Qu'est-ce qu'un 'pure player' dans la presse ?", Réponse_A:"Un journaliste sportif ultra-spécialisé", Réponse_B:"Un média uniquement numérique, sans version papier", Réponse_C:"Une émission de radio en direct", Réponse_D:"Un journal gratuit distribué dans le métro", Bonne_Réponse:"B", Explication:"Un pure player est un média 100% numérique, né sur Internet et sans version imprimée. Exemples : Mediapart (enquêtes), Brut (vidéos courtes pour les jeunes), Konbini, Slate.fr…" },
+    { Type:"COURS", Titre:"Le podcast — L'audio à la demande", Contenu:"Le podcast est un contenu audio à la demande, téléchargeable et écouté quand on veut. Il peut être :\n• D'information : Les Matins de France Culture, Le Monde Podcast\n• D'investigation : Affaires Sensibles (France Inter)\n• De décryptage : L'Heure du Monde\n• De narration sonore : Transfert (Slate)\nLe podcast offre un format long et approfondi, différent des flashs d'info rapides." },
+    { Type:"DRAGDROP", Titre:"Identifier le bon support — Écouter en différé, c'est quoi ?", Question:"Faites glisser : quel support permet d'écouter un contenu journalistique n'importe quand, en différé ?", Réponse_A:"Le journal télévisé en direct", Réponse_B:"Le journal radio en direct", Réponse_C:"Le podcast", Réponse_D:"La dépêche AFP", Bonne_Réponse:"C", Explication:"Le podcast est un contenu audio en différé : on le télécharge ou streame quand on veut. Il s'oppose à la radio en direct et au journal télévisé, qui sont diffusés à des horaires fixes." },
+    { Type:"COURS", Titre:"Les réseaux sociaux — Canaux de diffusion et risques", Contenu:"Les réseaux sociaux (X/Twitter, Instagram, Facebook, TikTok…) sont devenus des canaux de diffusion de l'information. Ils permettent une viralité immédiate. Cependant :\n• Les médias et journalistes les utilisent pour diffuser leur travail\n• Mais ils favorisent aussi les rumeurs, les fake news et les bulles de filtre\n• Les algorithmes privilégient l'émotion et le sensationnel\nL'éducation aux médias inclut l'apprentissage du regard critique sur les réseaux.", Points_Vigilance:"Un post sur les réseaux sociaux n'est pas du journalisme. Il faut distinguer un article vérifié par une rédaction d'un contenu créé par n'importe qui sans vérification." },
+    { Type:"QCM", Titre:"Presse régionale — Lequel est un quotidien régional ?", Question:"Lequel de ces journaux est un exemple de Presse Quotidienne Régionale (PQR) ?", Réponse_A:"Le Monde", Réponse_B:"Libération", Réponse_C:"Le Figaro", Réponse_D:"Ouest-France", Bonne_Réponse:"D", Explication:"Ouest-France est le premier quotidien français par son tirage total (700 000 exemplaires/jour), mais c'est un journal régional (Normandie, Bretagne, Pays de la Loire…). Le Monde, Libération et Le Figaro sont des quotidiens nationaux." },
+    { Type:"PHRASE_TROUS", Titre:"Compléter la phrase — Quel média combine image et son ?", Question:"La ___ est un média qui associe images et sons pour informer le public, notamment via les journaux télévisés diffusés le soir.", Bonne_Réponse:"télévision|television|TV", Explication:"La télévision combine l'image et le son, ce qui lui confère un fort pouvoir d'impact émotionnel. Les journaux télévisés (JT) du 20h de TF1 ou France 2 sont suivis par plusieurs millions de téléspectateurs chaque soir." },
+    { Type:"QCM", Titre:"Réseaux sociaux — Sont-ils une source fiable par défaut ?", Question:"Pourquoi un journaliste ne peut-il pas citer un tweet ou un post Instagram comme source fiable en soi ?", Réponse_A:"Parce que les réseaux sociaux sont illégaux en France", Réponse_B:"Parce qu'un post n'est pas vérifié et peut être faux, parodique ou sorti de son contexte", Réponse_C:"Parce que seuls les journaux imprimés ont valeur légale", Réponse_D:"Parce que les algorithmes empêchent les journalistes d'y accéder", Bonne_Réponse:"B", Explication:"Les réseaux sociaux sont des espaces où tout le monde publie sans vérification. Un journaliste doit recouper une information trouvée sur les réseaux avec d'autres sources fiables avant de la publier, et ne jamais se contenter d'un seul post comme preuve." },
+    { Type:"TEXTE_LIBRE", Titre:"Vocabulaire — Comment s'appelle la 1ère page d'un journal ?", Question:"Comment appelle-t-on la première page d'un journal, qui résume les sujets les plus importants du jour ?", Bonne_Réponse:"la une|une|la Une|Une", Explication:"La 'Une' (ou 'une') désigne la première page d'un journal ou magazine. C'est la vitrine du titre : elle présente les titres et photos des articles jugés les plus importants. 'Faire la une' signifie figurer en tête de l'actualité." },
+    { Type:"DRAGDROP", Titre:"Distinguer radio et podcast — Quelle est la différence clé ?", Question:"Faites glisser : par rapport à la radio, le podcast a l'avantage d'être :", Réponse_A:"Toujours diffusé en direct", Réponse_B:"Uniquement accessible en voiture", Réponse_C:"Disponible à la demande, quand on veut", Réponse_D:"Produit uniquement par des radios publiques", Bonne_Réponse:"C", Explication:"La différence fondamentale entre radio et podcast : la radio diffuse en direct à des horaires précis, tandis que le podcast est disponible à la demande. On écoute un podcast quand on veut, autant de fois qu'on veut, en le téléchargeant ou le streamant." }
+],
+
+"🔍 Les domaines traités": [
+    { Type:"COURS", Titre:"Le journalisme politique — Couvrir le pouvoir", Contenu:"Le journalisme politique couvre l'actualité des institutions (gouvernement, parlement, partis politiques), des élections, des débats législatifs et des relations entre pouvoirs. Il inclut les interviews de politiciens, la couverture de campagnes électorales, l'analyse des programmes…", Points_Vigilance:"Le journaliste politique doit éviter la connivence avec les acteurs politiques qu'il suit. Il ne doit pas prendre parti pour un camp politique et doit accorder un traitement équitable aux différentes formations." },
+    { Type:"QCM", Titre:"Journalisme politique — Quelle est son erreur à éviter ?", Question:"Quelle est la principale faute déontologique à éviter pour un journaliste politique ?", Réponse_A:"Interviewer des élus de partis opposés", Réponse_B:"Devenir trop proche et complice des politiciens qu'il couvre (connivence)", Réponse_C:"Couvrir les élections locales", Réponse_D:"Citer les programmes officiels des partis", Bonne_Réponse:"B", Explication:"La connivence est le risque majeur du journalisme politique : un journaliste qui fréquente trop les politiciens peut finir par les ménager plutôt que de les questionner avec rigueur. C'est une dérive qui nuit à l'indépendance et à l'intérêt public." },
+    { Type:"COURS", Titre:"Le journalisme économique — Décrypter l'argent et le travail", Contenu:"Le journalisme économique traite des entreprises, des marchés financiers, du commerce, de l'emploi, des politiques économiques et de la consommation. Il s'adresse à des lecteurs spécialisés (Les Échos, Le Revenu) mais aussi au grand public (rubriques économie du Monde ou du Figaro…). Il doit vulgariser des sujets complexes." },
+    { Type:"COURS", Titre:"Le journalisme culturel — Critiquer et valoriser les arts", Contenu:"Le journalisme culturel couvre les arts, le cinéma, la musique, la littérature, le théâtre, les expositions… Il prend plusieurs formes :\n• La critique (évaluation d'une œuvre par un journaliste-critique)\n• L'interview d'artiste\n• Le reportage culturel (backstage d'un tournage, coulisses d'un festival)\n• L'agenda culturel\nLes journalistes culturels sont souvent des spécialistes de leur domaine." },
+    { Type:"QCM", Titre:"Journalisme culturel — Quel sujet relève de ce domaine ?", Question:"Un journaliste couvre la sortie d'un roman primé au Prix Goncourt et interviewe son auteur. Dans quel domaine travaille-t-il ?", Réponse_A:"Faits divers", Réponse_B:"Politique", Réponse_C:"Économie", Réponse_D:"Culture", Bonne_Réponse:"D", Explication:"La couverture d'un prix littéraire et d'un auteur relève du journalisme culturel, qui traite des arts, de la littérature, du cinéma, de la musique et des autres manifestations culturelles et artistiques." },
+    { Type:"COURS", Titre:"Le journalisme sportif — Des résultats aux coulisses", Contenu:"Le journalisme sportif couvre les compétitions, les résultats, les coulisses des clubs et fédérations, les enjeux économiques du sport professionnel. Il comprend :\n• Les reportages live et commentaires\n• Les analyses tactiques\n• Les interviews d'athlètes\n• Les enquêtes sur le dopage, la corruption…\nL'Équipe, RMC Sport ou Canal+ sont des exemples de médias spécialisés dans le sport." },
+    { Type:"COURS", Titre:"Le journalisme de société — Comprendre les évolutions sociales", Contenu:"Le journalisme de société traite des phénomènes sociaux : éducation, santé, environnement, justice, immigration, pauvreté, inégalités, modes de vie… Il cherche à comprendre les évolutions de la société et à donner la parole à ceux qui sont peu entendus. C'est souvent un journalisme 'de terrain' proche des gens.", Points_Vigilance:"Ce domaine implique souvent de traiter des sujets sensibles (précarité, discrimination, santé mentale…) qui nécessitent empathie, respect des personnes interviewées et rigueur dans le traitement." },
+    { Type:"QCM", Titre:"Journalisme de société — Quel sujet relève de ce domaine ?", Question:"Lequel de ces sujets relève du journalisme de société ?", Réponse_A:"Les résultats du championnat de football", Réponse_B:"La montée de la pauvreté dans les quartiers populaires", Réponse_C:"L'analyse du budget de l'État", Réponse_D:"La critique d'un film au cinéma", Bonne_Réponse:"B", Explication:"Le journalisme de société traite des réalités sociales : pauvreté, inégalités, education, santé, modes de vie… La montée de la pauvreté est un sujet de société. Le foot = sport, le budget = économie, la critique de film = culture." },
+    { Type:"COURS", Titre:"Le journalisme scientifique — Vulgariser sans trahir", Contenu:"Le journalisme scientifique vulgarise les découvertes et avancées de la recherche pour le grand public. Il couvre la médecine, les technologies, l'environnement, l'astronomie, la biologie… Le journaliste scientifique doit comprendre des sujets complexes pour les traduire en langage accessible.", Points_Vigilance:"Le journaliste scientifique doit distinguer les résultats publiés dans des revues validées par des pairs (peer-reviewed) d'études non validées, de pseudosciences ou de communiqués de presse d'entreprises." },
+    { Type:"QCM", Titre:"Journalisme scientifique — Quelle est sa principale difficulté ?", Question:"Quelle est la difficulté principale du journalisme scientifique ?", Réponse_A:"Il n'y a jamais d'événements scientifiques à couvrir", Réponse_B:"Vulgariser des sujets complexes sans les déformer ni les simplifier à l'excès", Réponse_C:"Les scientifiques refusent systématiquement de parler aux journalistes", Réponse_D:"Les sujets scientifiques n'intéressent jamais le grand public", Bonne_Réponse:"B", Explication:"La vulgarisation est le défi central du journalisme scientifique : traduire des résultats complexes en langage compréhensible pour tous, sans simplifier à l'excès ni créer de fausses impressions. Trop simplifier peut conduire à des erreurs ou à de la désinformation." },
+    { Type:"COURS", Titre:"Les faits divers — L'extraordinaire du quotidien", Contenu:"Les faits divers couvrent les événements locaux ou nationaux qui sortent de l'ordinaire : accidents, crimes, faits insolites… C'est souvent le premier contact du public avec la presse locale. La rubrique 'faits divers' est présente dans presque tous les journaux régionaux.", Points_Vigilance:"Attention à ne pas stigmatiser des groupes sociaux à travers le traitement des faits divers. La présomption d'innocence est un principe fondamental : une personne mise en cause n'est pas coupable avant jugement." },
+    { Type:"DROPDOWN", Titre:"Présomption d'innocence — Quand s'applique-t-elle surtout ?", Question:"La présomption d'innocence est particulièrement importante dans le traitement des :", Réponse_A:"Articles culturels", Réponse_B:"Analyses économiques", Réponse_C:"Faits divers et affaires judiciaires", Réponse_D:"Résultats sportifs", Bonne_Réponse:"C", Explication:"La présomption d'innocence est un principe fondamental : toute personne est présumée innocente tant qu'un tribunal ne l'a pas condamnée. Ce principe est crucial dans les faits divers et affaires judiciaires, où les médias peuvent influencer l'opinion avant tout jugement." },
+    { Type:"DRAGDROP", Titre:"Associer sujet et domaine — Élections = quel journalisme ?", Question:"Faites glisser : la couverture des élections législatives appartient au journalisme :", Réponse_A:"Économique", Réponse_B:"Culturel", Réponse_C:"Politique", Réponse_D:"Scientifique", Bonne_Réponse:"C", Explication:"Les élections sont le cœur du journalisme politique, qui couvre les institutions démocratiques, les partis, les campagnes électorales et les résultats de votes." },
+    { Type:"TEXTE_LIBRE", Titre:"Vocabulaire — Comment s'appelle le journalisme sur l'environnement ?", Question:"Comment appelle-t-on le journalisme qui traite spécifiquement des enjeux climatiques, écologiques et environnementaux ?", Bonne_Réponse:"journalisme environnemental|journalisme écologique|journalisme vert|journalisme climatique", Explication:"Le journalisme environnemental (ou écologique / climatique) est en plein essor depuis la crise climatique. Il couvre le changement climatique, la biodiversité, la pollution, la transition énergétique… Il requiert de solides connaissances scientifiques." },
+    { Type:"QCM", Titre:"Journalisme économique — Qui est son lectorat cible ?", Question:"La presse économique spécialisée comme Les Échos ou Capital s'adresse principalement à :", Réponse_A:"Des adolescents passionnés de jeux vidéo", Réponse_B:"Des professionnels, investisseurs et personnes intéressées par l'économie et les marchés", Réponse_C:"Des amateurs de musique classique", Réponse_D:"Des journalistes en formation", Bonne_Réponse:"B", Explication:"Les Échos, Capital ou Le Revenu sont des publications de presse économique qui s'adressent à un public de professionnels, cadres, investisseurs et personnes intéressées par les entreprises, les marchés financiers et la gestion. Leur vocabulaire est plus technique que la presse généraliste." },
+    { Type:"PHRASE_TROUS", Titre:"Compléter la phrase — Le journalisme sportif et l'enquête", Question:"Au-delà des résultats sportifs, le journalisme sportif peut aussi pratiquer des enquêtes, notamment sur le ___ ou la corruption dans les fédérations.", Bonne_Réponse:"dopage", Explication:"Le journalisme sportif va bien au-delà des scores et classements. Des enquêtes importantes ont révélé des affaires de dopage (cyclisme, athlétisme), de corruption (football), de fraude financière (transferts)… c'est du journalisme d'investigation appliqué au domaine sportif." },
+    { Type:"QCM", Titre:"Journalisme de société vs faits divers — Comment les distinguer ?", Question:"Quelle est la différence entre un fait divers et un article de société ?", Réponse_A:"Il n'y a aucune différence", Réponse_B:"Le fait divers traite un événement isolé et spectaculaire ; l'article de société analyse un phénomène social plus large", Réponse_C:"Le fait divers est national, l'article de société est local", Réponse_D:"Le fait divers est rédigé par des policiers, l'article de société par des sociologues", Bonne_Réponse:"B", Explication:"Un fait divers traite d'un événement particulier et souvent isolé (un vol, un accident…). Un article de société analyse des tendances plus larges (la montée de l'insécurité, les inégalités de revenus…). La différence est dans l'échelle et la profondeur d'analyse." }
+],
+
+"🌍 Les échelles géographiques": [
+    { Type:"COURS", Titre:"L'information locale — La ville et le quartier", Contenu:"Le journalisme local couvre l'actualité d'une ville, d'un arrondissement ou d'un quartier. Il traite :\n• La vie municipale (conseil municipal, projets urbains)\n• La culture et les événements locaux\n• Les faits divers du secteur\n• Les portraits d'habitants\nExemples : Le Dauphiné Libéré (Isère), Le Télégramme (Bretagne), les pages locales d'Ouest-France.\nC'est souvent le premier niveau d'information qui touche directement la vie quotidienne des habitants.", Points_Vigilance:"Le journalisme local est essentiel à la démocratie locale. Son déclin (fermetures de journaux locaux faute de lecteurs et de revenus publicitaires) est une préoccupation réelle pour la vie démocratique des territoires." },
+    { Type:"QCM", Titre:"Information locale — Quel exemple illustre ce niveau ?", Question:"Lequel de ces sujets relève typiquement du journalisme local ?", Réponse_A:"La guerre au Moyen-Orient", Réponse_B:"La réélection du président de la République", Réponse_C:"La construction d'une nouvelle médiathèque à Angers", Réponse_D:"La réforme du système fiscal national", Bonne_Réponse:"C", Explication:"La construction d'une médiathèque à Angers concerne les habitants d'une ville précise : c'est une information locale. Elle sera traitée par les journaux régionaux (Ouest-France, Courrier de l'Ouest…), pas par les médias nationaux." },
+    { Type:"COURS", Titre:"L'information régionale — La région et ses enjeux", Contenu:"L'information régionale couvre une région administrative ou une zone géographique plus large que la commune. Elle traite :\n• Les décisions du conseil régional\n• L'économie régionale (emploi, entreprises locales)\n• Les grands projets d'infrastructure (LGV, autoroutes…)\n• Les enjeux culturels et sportifs régionaux\nLa Presse Quotidienne Régionale (PQR) : La Voix du Nord, Le Midi Libre, Sud-Ouest, Ouest-France…" },
+    { Type:"QCM", Titre:"PQR — Quel journal est un exemple de presse régionale ?", Question:"Lequel de ces journaux est un exemple de Presse Quotidienne Régionale (PQR) ?", Réponse_A:"Le Monde", Réponse_B:"Libération", Réponse_C:"Le Figaro", Réponse_D:"Ouest-France", Bonne_Réponse:"D", Explication:"Ouest-France est le premier quotidien français par son tirage total (plus de 700 000 exemplaires/jour), mais c'est un journal régional (Normandie, Bretagne, Pays de la Loire…). Le Monde, Libération et Le Figaro sont des quotidiens nationaux." },
+    { Type:"COURS", Titre:"L'information nationale — Le pays tout entier", Contenu:"L'information nationale couvre l'ensemble du territoire d'un pays. Elle traite :\n• La politique nationale (gouvernement, parlement, élections)\n• L'économie du pays\n• Les grandes tendances sociales et culturelles nationales\nLes médias nationaux français : Le Monde, Le Figaro, France Info, France 2, BFMTV…\nLe niveau national permet une vue d'ensemble des enjeux qui concernent tous les citoyens." },
+    { Type:"QCM", Titre:"Information nationale — Comment la reconnaître ?", Question:"Un article traite de la réforme des retraites votée par le Parlement français. À quelle échelle se situe cette information ?", Réponse_A:"Locale", Réponse_B:"Régionale", Réponse_C:"Nationale", Réponse_D:"Internationale", Bonne_Réponse:"C", Explication:"La réforme des retraites concerne l'ensemble du territoire français et tous les travailleurs du pays : c'est une information nationale. Elle est couverte par les médias nationaux et traite d'une décision du Parlement, institution nationale." },
+    { Type:"COURS", Titre:"L'information internationale — Hors frontières nationales", Contenu:"L'information internationale couvre les événements se déroulant hors des frontières nationales. Elle inclut :\n• Les conflits armés\n• Les relations diplomatiques entre pays\n• Les crises humanitaires\n• Les élections étrangères\n• Les événements économiques mondiaux\nLes correspondants étrangers et envoyés spéciaux sont les spécialistes de ce niveau. Des agences comme l'AFP, Reuters ou AP alimentent les médias du monde entier.", Points_Vigilance:"Couvrir l'international demande souvent de connaître les langues, cultures et contextes historiques des pays. Le risque est de regarder le monde uniquement avec un prisme occidental ou ethnocentrique." },
+    { Type:"QCM", Titre:"Information internationale — Quel exemple illustre ce niveau ?", Question:"Lequel de ces sujets est une information internationale ?", Réponse_A:"L'inauguration d'une école à Bordeaux", Réponse_B:"Les élections présidentielles en France", Réponse_C:"Un accord de paix signé entre deux pays africains", Réponse_D:"La grève des transports à Lyon", Bonne_Réponse:"C", Explication:"Un accord de paix entre deux pays africains concerne des États souverains étrangers : c'est une information internationale. L'école à Bordeaux = local, les élections françaises = national, la grève à Lyon = local/régional." },
+    { Type:"COURS", Titre:"L'information mondiale — Les enjeux qui concernent toute l'humanité", Contenu:"Certains sujets dépassent même l'échelle internationale pour concerner l'ensemble de l'humanité :\n• Le changement climatique\n• Les pandémies (ex : Covid-19)\n• La régulation des technologies numériques\n• La géopolitique mondiale (tensions entre grandes puissances)\nCe niveau nécessite une coopération entre journalistes de différents pays. Des médias mondiaux comme Al Jazeera, BBC World ou Deutsche Welle y jouent un rôle important." },
+    { Type:"COURS", Titre:"Correspondant et envoyé spécial — Quelle différence ?", Contenu:"• Le correspondant local/régional : journaliste basé dans une ville pour couvrir l'actualité de sa zone en permanence.\n• Le correspondant étranger : journaliste installé de façon permanente dans un pays étranger pour couvrir la région.\n• L'envoyé spécial : journaliste dépêché ponctuellement à l'étranger (ou en région) pour couvrir un événement précis (élection, crise, catastrophe…).\nLa différence essentielle : le correspondant est permanent, l'envoyé spécial est temporaire." },
+    { Type:"TEXTE_LIBRE", Titre:"Vocabulaire — Comment s'appelle le journaliste envoyé ponctuellement sur un événement ?", Question:"Comment appelle-t-on un journaliste envoyé ponctuellement dans un pays étranger pour couvrir un événement précis (guerre, élection, catastrophe) ?", Bonne_Réponse:"envoyé spécial|envoye special", Explication:"L'envoyé spécial est dépêché en mission pour un événement précis, à la différence du correspondant étranger qui réside de façon permanente dans un pays. Les envoyés spéciaux couvrent souvent des zones de conflit ou des crises majeures." },
+    { Type:"DROPDOWN", Titre:"AFP — À qui fournit-elle des informations ?", Question:"L'AFP (Agence France-Presse) fournit ses dépêches à :", Réponse_A:"Uniquement aux médias français", Réponse_B:"Des médias du monde entier", Réponse_C:"Seulement aux chaînes de TV françaises", Réponse_D:"Uniquement aux journaux régionaux", Bonne_Réponse:"B", Explication:"L'AFP est l'une des trois grandes agences de presse mondiales (avec Reuters et Associated Press). Elle fournit dépêches, photos, vidéos et infographies à des milliers de médias dans plus de 150 pays. C'est un acteur majeur de l'information mondiale." },
+    { Type:"DRAGDROP", Titre:"Classer l'échelle — La guerre en Ukraine, c'est quel niveau ?", Question:"Faites glisser : un reportage sur la guerre en Ukraine appartient à quelle échelle géographique ?", Réponse_A:"Locale", Réponse_B:"Régionale", Réponse_C:"Nationale", Réponse_D:"Internationale", Bonne_Réponse:"D", Explication:"La guerre en Ukraine est un conflit entre États (Russie et Ukraine) qui a des répercussions sur de nombreux autres pays : c'est une information internationale. Elle est couverte par des correspondants installés dans la région ou des envoyés spéciaux." },
+    { Type:"PHRASE_TROUS", Titre:"Compléter la phrase — Le journalisme de proximité", Question:"Le journalisme ___ couvre l'actualité d'une ville ou d'un quartier et est essentiel à la vie démocratique des territoires.", Bonne_Réponse:"local|de proximité", Explication:"Le journalisme local (ou de proximité) informe les habitants sur ce qui se passe dans leur ville ou quartier : vie municipale, faits divers, événements locaux… Son déclin est une préoccupation pour la démocratie locale, car il est le seul à surveiller le pouvoir à l'échelle des communes." },
+    { Type:"QCM", Titre:"Mondialisation de l'info — Quelle thématique dépasse les frontières ?", Question:"Lequel de ces sujets relève d'une information de dimension MONDIALE (et non simplement internationale) ?", Réponse_A:"L'élection présidentielle en Allemagne", Réponse_B:"Un conflit frontalier entre deux pays voisins", Réponse_C:"Le changement climatique et ses effets sur toute la planète", Réponse_D:"La grève des transports à Paris", Bonne_Réponse:"C", Explication:"Le changement climatique concerne l'ensemble de l'humanité, pas seulement un ou deux pays : c'est un enjeu de dimension mondiale ou globale. Il nécessite une coopération journalistique internationale et des médias capables d'analyser des phénomènes qui dépassent les frontières." },
+    { Type:"QCM", Titre:"Prise de vue globale — Qu'est-ce que le journalisme transnational ?", Question:"Qu'est-ce que le journalisme transnational ?", Réponse_A:"Un journalisme uniquement diffusé sur internet", Réponse_B:"Une collaboration entre journalistes de plusieurs pays pour enquêter sur des sujets dépassant les frontières nationales", Réponse_C:"Un type de journalisme réservé aux agences de presse", Réponse_D:"Un journalisme financé par plusieurs gouvernements", Bonne_Réponse:"B", Explication:"Le journalisme transnational implique la coopération entre journalistes de différents pays pour travailler sur des sujets internationaux. Un exemple célèbre : les Panama Papers (2016), une enquête coordonnée par le Consortium International des Journalistes d'Investigation (ICIJ) regroupant plus de 370 journalistes dans 76 pays." }
+],
+
+"👥 Les métiers de la presse": [
+    { Type:"COURS", Titre:"Le reporter — Aller chercher l'info sur le terrain", Contenu:"Le reporter est le journaliste qui se déplace sur le terrain pour collecter l'information directement à la source. Il observe, interroge des témoins et rédige ses articles depuis le lieu même des événements. On distingue :\n• Le reporter d'images (ou photoreporter) : il raconte l'actualité en images.\n• Le reporter de guerre (ou grand reporter) : il couvre les conflits armés et zones de crise à l'étranger, souvent au péril de sa vie.\n• Le reporter local : il couvre l'actualité de proximité pour un titre régional.", Points_Vigilance:"Le reporter doit être présent sur le terrain : c'est ce qui distingue son travail d'un journaliste de bureau. Il ne peut pas inventer ni embellir ce qu'il observe." },
+    { Type:"QCM", Titre:"Reporter — Quelle est sa spécificité par rapport aux autres journalistes ?", Question:"Ce qui distingue fondamentalement un reporter des autres journalistes, c'est qu'il :", Réponse_A:"Travaille uniquement à la radio", Réponse_B:"Se déplace sur le terrain pour observer et collecter l'information directement", Réponse_C:"Rédige uniquement des éditoriaux", Réponse_D:"Est toujours à l'étranger", Bonne_Réponse:"B", Explication:"La présence sur le terrain est la marque distinctive du reporter. Là où d'autres journalistes travaillent depuis la rédaction (en exploitant des dépêches, des communiqués, des sources téléphoniques), le reporter se rend lui-même sur les lieux pour observer, rencontrer des témoins et collecter l'information de première main." },
+    { Type:"COURS", Titre:"Le rédacteur — Écrire et traiter l'information", Contenu:"Le rédacteur (ou journaliste rédacteur) est le cœur de la rédaction. Son travail consiste à :\n• Collecter des informations (via téléphone, agences de presse, internet, communiqués…)\n• Vérifier les faits auprès de plusieurs sources\n• Rédiger des articles clairs, précis et bien structurés\n• Respecter les formats imposés (brève, article, reportage…)\nLe rédacteur travaille souvent depuis la rédaction, contrairement au reporter qui est sur le terrain." },
+    { Type:"COURS", Titre:"Le secrétaire de rédaction (SR) — Gardien de la qualité", Contenu:"Le secrétaire de rédaction (SR) est un métier peu visible du grand public mais essentiel. Il assure :\n• La relecture et la correction des articles (orthographe, grammaire, syntaxe)\n• La vérification de la cohérence des textes\n• Le titrage : rédiger les titres, sous-titres, chapeaux et légendes de photos\n• La mise en conformité avec la charte stylistique du journal\n• La coordination entre les journalistes et les maquettistes\nLe SR est souvent appelé 'le pompier de la rédaction' car il intervient en urgence pour corriger avant impression.", Points_Vigilance:"Le SR n'est pas seulement un correcteur : il réécrit, restructure, titre. C'est un expert du langage journalistique. Ne pas confondre avec un simple correcteur orthographique." },
+    { Type:"QCM", Titre:"Secrétaire de rédaction — Quelle est sa mission principale ?", Question:"Parmi ces tâches, laquelle est au cœur du métier de secrétaire de rédaction ?", Réponse_A:"Aller interviewer des personnalités politiques", Réponse_B:"Relire, corriger, titrer les articles et préparer les pages avant publication", Réponse_C:"Gérer les comptes financiers du journal", Réponse_D:"Filmer les reportages télévisés", Bonne_Réponse:"B", Explication:"Le secrétaire de rédaction (SR) est le garant de la qualité formelle des textes avant publication. Il relit, corrige, retravaille les titres et sous-titres, vérifie les chapeaux et les légendes. C'est un métier exigeant qui mêle maîtrise de la langue et sens journalistique." },
+    { Type:"COURS", Titre:"Le rédacteur en chef (REC) — Diriger la rédaction", Contenu:"Le rédacteur en chef (REC) est le responsable éditorial d'un journal ou d'une émission. Il :\n• Définit la ligne éditoriale (orientation générale du journal)\n• Décide des sujets à traiter et de leur hiérarchisation\n• Dirige la conférence de rédaction quotidienne\n• Valide les articles avant publication\n• Est responsable devant la loi du contenu publié (responsabilité pénale)\nDans un grand journal, il est secondé par des rédacteurs en chef adjoints et des chefs de service.", Points_Vigilance:"Le rédacteur en chef est légalement responsable de tout ce que publie son journal, même s'il n'a pas lui-même rédigé l'article. C'est pourquoi il dispose d'un droit de regard absolu sur les contenus." },
+    { Type:"QCM", Titre:"Rédacteur en chef — Quelle est sa responsabilité légale ?", Question:"En France, le rédacteur en chef d'un journal est responsable devant la loi :", Réponse_A:"Uniquement des articles qu'il a lui-même rédigés", Réponse_B:"De l'ensemble du contenu publié dans son journal, même s'il ne l'a pas écrit", Réponse_C:"Seulement des erreurs orthographiques", Réponse_D:"Des résultats financiers du journal", Bonne_Réponse:"B", Explication:"En vertu de la loi sur la liberté de la presse de 1881, le directeur de la publication (souvent le rédacteur en chef) est pénalement responsable de l'ensemble des contenus publiés. Il peut être poursuivi pour diffamation, injure ou incitation à la haine, même s'il n'a pas rédigé l'article concerné." },
+    { Type:"COURS", Titre:"Le chef de rubrique — Coordonner une section", Contenu:"Dans les grands journaux, la rédaction est organisée en rubriques thématiques (politique, économie, culture, sport, international…). Le chef de rubrique :\n• Gère l'équipe de journalistes de sa rubrique\n• Choisit les sujets à traiter dans son domaine\n• Assure la liaison avec le rédacteur en chef\n• Participe aux conférences de rédaction\n• Relit et valide les articles de son équipe avant transmission au SR\nC'est un journaliste expérimenté qui allie expertise éditoriale et gestion d'équipe." },
+    { Type:"COURS", Titre:"Le maquettiste / directeur artistique (DA) — Mettre en page", Contenu:"Le maquettiste (ou directeur artistique dans les magazines) conçoit la mise en page visuelle du journal ou magazine. Il :\n• Choisit la disposition des textes, photos et infographies sur la page\n• Respecte la charte graphique du journal (polices, couleurs, format)\n• Travaille en étroite collaboration avec les SR et les photographes\n• Crée les gabarits de pages réutilisables\nSon objectif : rendre la lecture fluide, agréable et cohérente avec l'identité visuelle du titre.", Points_Vigilance:"Le maquettiste ne rédige pas les articles : c'est un professionnel de l'image et de la typographie. Dans les petites rédactions, le SR et le maquettiste peuvent être la même personne." },
+    { Type:"QCM", Titre:"Maquettiste — Quel est son rôle dans la chaîne de fabrication ?", Question:"Quel est le rôle principal du maquettiste dans une rédaction ?", Réponse_A:"Rédiger les articles de fond", Réponse_B:"Photographier les événements d'actualité", Réponse_C:"Concevoir la mise en page visuelle du journal (textes, photos, titres)", Réponse_D:"Gérer les abonnements des lecteurs", Bonne_Réponse:"C", Explication:"Le maquettiste conçoit l'aspect visuel du journal : il place les textes, les photos et les titres sur la page de façon lisible et esthétique. Il travaille avec un logiciel de PAO (Publication Assistée par Ordinateur) comme InDesign. Son travail est invisible pour le lecteur, mais essentiel à la lisibilité du journal." },
+    { Type:"COURS", Titre:"Le photojournaliste — Raconter en images", Contenu:"Le photojournaliste est un journaliste qui utilise la photographie comme moyen d'expression principal. Son travail consiste à :\n• Illustrer l'actualité par des images fortes et significatives\n• Assurer la couverture photographique d'événements (politique, sport, guerre, société…)\n• Respecter l'éthique : ne pas mettre en scène, ne pas manipuler les images\n• Rédiger des légendes précises pour contextualiser ses photos\nLes grandes agences photo (Magnum, Getty Images, Reuters) emploient des photojournalistes envoyés dans le monde entier.", Points_Vigilance:"Un photojournaliste ne peut pas modifier le contenu d'une photo (ajouter ou supprimer des éléments). Les retouches acceptées se limitent aux réglages techniques (luminosité, contraste). Toute manipulation est une faute déontologique grave." },
+    { Type:"QCM", Titre:"Photojournaliste — Quelle manipulation lui est interdite ?", Question:"Lequel de ces actes est interdit au photojournaliste ?", Réponse_A:"Régler la luminosité de ses photos", Réponse_B:"Rédiger les légendes de ses images", Réponse_C:"Modifier le contenu d'une photo pour la rendre plus spectaculaire", Réponse_D:"Choisir le moment de déclenchement", Bonne_Réponse:"C", Explication:"La manipulation du contenu d'une photo (ajouter, supprimer ou déplacer des éléments) est une faute déontologique grave pour un photojournaliste. Des cas célèbres de manipulations ont conduit au licenciement de photographes et à des scandales médiatiques. La réalité doit être représentée fidèlement." },
+    { Type:"COURS", Titre:"Le journaliste de données (data journalist) — L'info par les chiffres", Contenu:"Le journaliste de données (ou data journalist) est un métier récent, né avec la révolution numérique. Il :\n• Collecte et analyse des grandes quantités de données (statistiques, bases de données publiques…)\n• Crée des visualisations interactives (graphiques, cartes, infographies)\n• Détecte des tendances cachées dans les chiffres\n• Collabore avec des développeurs informatiques\nExemples de travaux : cartographier les inégalités sociales, visualiser les données électorales, analyser les dépenses publiques.\nC'est un profil très recherché dans les rédactions modernes." },
+    { Type:"COURS", Titre:"Le pigiste — Travailler en indépendant", Contenu:"Le pigiste est un journaliste indépendant rémunéré à la 'pige', c'est-à-dire à l'article ou au sujet produit, sans être salarié fixe d'une rédaction. Il :\n• Propose des sujets à différents journaux ou travaille sur commande\n• Gère son propre emploi du temps et ses propres outils\n• Peut travailler pour plusieurs titres simultanément\n• Perçoit une rémunération par article publié\nLa pige est souvent la première étape de la carrière d'un journaliste. Elle offre de la liberté mais implique une instabilité financière.", Points_Vigilance:"Même rémunéré à la pige, le journaliste pigiste a les mêmes obligations déontologiques qu'un salarié : vérification des faits, protection des sources, honnêteté…" },
+    { Type:"DRAGDROP", Titre:"Associer métier et mission — Qui corrige et titre les articles ?", Question:"Faites glisser : quel métier consiste à relire, corriger et rédiger les titres des articles avant publication ?", Réponse_A:"Le reporter", Réponse_B:"Le photojournaliste", Réponse_C:"Le secrétaire de rédaction", Réponse_D:"Le directeur artistique", Bonne_Réponse:"C", Explication:"Le secrétaire de rédaction (SR) est le spécialiste de la correction et du titrage. Il relit tous les articles avant publication, corrige les fautes, retravaille les formulations maladroites et rédige les titres, sous-titres et légendes." },
+    { Type:"DROPDOWN", Titre:"Vocabulaire — Qui est responsable légal du journal ?", Question:"En France, la personne légalement responsable du contenu publié dans un journal s'appelle le :", Réponse_A:"Secrétaire de rédaction", Réponse_B:"Pigiste", Réponse_C:"Directeur de la publication", Réponse_D:"Maquettiste", Bonne_Réponse:"C", Explication:"Le directeur de la publication est la personne légalement responsable de tout ce que publie un journal. C'est souvent le rédacteur en chef ou le directeur général du titre. En cas de poursuite judiciaire (diffamation, injure…), c'est lui qui est mis en cause en priorité." },
+    { Type:"QCM", Titre:"Conférence de rédaction — Qui la dirige ?", Question:"La conférence de rédaction quotidienne, où sont décidés les sujets du lendemain, est dirigée par :", Réponse_A:"Le secrétaire de rédaction", Réponse_B:"Le maquettiste", Réponse_C:"Le rédacteur en chef", Réponse_D:"Le pigiste", Bonne_Réponse:"C", Explication:"La conférence de rédaction est la réunion quotidienne (ou plusieurs fois par jour dans les rédactions web) où les journalistes proposent des sujets et où le rédacteur en chef décide des articles à traiter, de leur importance et de leur place dans le journal." },
+    { Type:"TEXTE_LIBRE", Titre:"Vocabulaire — Comment s'appelle le journaliste payé à l'article ?", Question:"Comment appelle-t-on un journaliste indépendant rémunéré non pas par un salaire fixe, mais à l'article ou au sujet produit ?", Bonne_Réponse:"pigiste|un pigiste", Explication:"Le pigiste est rémunéré à la 'pige' : chaque article publié lui rapporte une somme convenue avec le journal. C'est un statut courant dans le journalisme, notamment en début de carrière. Les pigistes peuvent travailler pour plusieurs rédactions simultanément." },
+    { Type:"PHRASE_TROUS", Titre:"Compléter la phrase — Le rôle du REC", Question:"Le rédacteur en ___ est le responsable éditorial du journal : il dirige la conférence de rédaction et valide les articles avant publication.", Bonne_Réponse:"chef", Explication:"Le rédacteur en chef (souvent abrégé 'REC') est au sommet de la hiérarchie éditoriale d'un journal. Il décide des sujets traités, gère les équipes et est légalement responsable des contenus publiés." },
+    { Type:"QCM", Titre:"Data journalism — En quoi consiste ce métier récent ?", Question:"Qu'est-ce que le journalisme de données (data journalism) ?", Réponse_A:"Un journalisme qui ne s'appuie que sur des témoignages oraux", Réponse_B:"Un journalisme qui collecte et analyse des données chiffrées pour en tirer des informations et créer des visualisations", Réponse_C:"Un journalisme exclusivement diffusé sur des tablettes numériques", Réponse_D:"Un journalisme qui consiste à faire des sondages d'opinion", Bonne_Réponse:"B", Explication:"Le data journalism (journalisme de données) consiste à exploiter des bases de données pour révéler des tendances, des inégalités ou des dysfonctionnements invisibles à l'œil nu. Les data journalistes créent des graphiques interactifs, des cartes et des infographies pour rendre les données compréhensibles par le grand public." },
+    { Type:"DRAGDROP", Titre:"Associer métier et support — Qui travaille avec des images ?", Question:"Faites glisser : quel journaliste utilise la photographie comme principal outil d'expression ?", Réponse_A:"Le secrétaire de rédaction", Réponse_B:"Le rédacteur en chef", Réponse_C:"Le photojournaliste", Réponse_D:"Le pigiste", Bonne_Réponse:"C", Explication:"Le photojournaliste est le journaliste dont l'outil principal est l'appareil photo. Il couvre l'actualité en images, avec les mêmes obligations déontologiques que ses collègues rédacteurs : exactitude, honnêteté, interdiction de manipuler les images." },
+    { Type:"QCM", Titre:"Hiérarchie — Dans quel ordre s'organise une rédaction ?", Question:"Dans la hiérarchie d'une rédaction de presse écrite, quel est l'ordre correct du plus haut au plus bas ?", Réponse_A:"Reporter → Chef de rubrique → Rédacteur en chef", Réponse_B:"Rédacteur en chef → Chef de rubrique → Journaliste rédacteur", Réponse_C:"Secrétaire de rédaction → Reporter → Directeur artistique", Réponse_D:"Pigiste → Rédacteur en chef → Chef de rubrique", Bonne_Réponse:"B", Explication:"Dans une rédaction classique, la hiérarchie va du rédacteur en chef (sommet éditorial) au chef de rubrique (responsable d'une section) jusqu'au journaliste rédacteur ou reporter (exécutant éditorial). Le SR et le maquettiste sont des postes transversaux qui travaillent pour toute la rédaction." }
+]
+
+};
+
+// ==========================================
+// --- LOGIQUE PRINCIPALE ---
+// ==========================================
+
+let currentScore = 0;
+let maxQuizScore = 0;
+let answeredQuestions = new Set();
+let examMode = false;
+let examUserAnswers = {};
+let examTimerInterval = null;
+let examSecondsLeft = 0;
+let selectedExamDuration = 30;
+let selectedExamSection = null;
+
+const sections = [
+    { name: "✍️ Testez vos connaissances", color: "#10b981" },
+    { name: "📰 Les types de contenus",     color: "#2563eb" },
+    { name: "📺 Les supports",              color: "#f97316" },
+    { name: "🔍 Les domaines traités",      color: "#ec4899" },
+    { name: "🌍 Les échelles géographiques",color: "#8b5cf6" },
+    { name: "👥 Les métiers de la presse",  color: "#0891b2" }
+];
+
+const app = document.getElementById('app');
+const menu = document.getElementById('menu');
+const scoreBoard = document.getElementById('scoreBoard');
+const finalBox = document.getElementById('finalResult');
+
+// Création du menu
+sections.forEach(s => {
+    const btn = document.createElement('button');
+    btn.className = 'nav-btn';
+    btn.innerText = s.name;
+    btn.style.setProperty('--btn-color', s.color);
+    btn.onclick = () => loadSection(s.name, btn);
+    menu.appendChild(btn);
+});
+
+function toggleTheme() {
+    document.body.classList.toggle('dark-mode');
+    document.getElementById('themeBtn').innerText = document.body.classList.contains('dark-mode') ? "☀️" : "🌙";
+}
+
+function loadSection(name, btn) {
+    currentScore = 0; maxQuizScore = 0;
+    answeredQuestions.clear();
+    finalBox.style.display = "none";
+    document.querySelectorAll('.trophy-card').forEach(t => t.classList.remove('unlocked'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const data = DATA[name] || [];
+    render(data);
+}
+
+function render(data) {
+    let html = ""; let hasQuiz = false;
+
+    data.forEach((row, i) => {
+        // COURS
+        if (row.Type === "COURS") {
+            html += `<div class="fiche-bristol">
+                <h2>${row.Titre || "Leçon"}</h2>
+                <div style="white-space:pre-wrap; margin-top:20px; color:var(--texte-sec); font-size:1.05rem; line-height:1.8;">${row.Contenu || ""}</div>
+                ${row.Points_Vigilance ? `<div class="vigilance-box"><strong>⚠️ Points de vigilance :</strong><br>${row.Points_Vigilance}</div>` : ""}
+            </div>`;
+        }
+        // QUIZ
+        else if (row.Question || ["QCM","DRAGDROP","DROPDOWN","TEXTE_LIBRE","PHRASE_TROUS"].includes((row.Type||"").toUpperCase())) {
+            hasQuiz = true; maxQuizScore++;
+            const bonne = (row.Bonne_Réponse || "").trim().toUpperCase();
+            const format = (row.Format || row.Type || "QCM").toUpperCase();
+            let quizContent = "";
+
+            if (format === "DROPDOWN") {
+                quizContent = `
+                    <div class="quiz-title">${row.Titre || "Complétez :"} <br>${row.Question ? `<span style="font-weight:normal;">${row.Question}</span>` : ""}</div>
+                    <select id="sel-${i}" class="quiz-select">
+                        <option value="">-- Sélectionnez la bonne réponse --</option>
+                        <option value="A">${row.Réponse_A || ""}</option>
+                        <option value="B">${row.Réponse_B || ""}</option>
+                        ${row.Réponse_C ? `<option value="C">${row.Réponse_C}</option>` : ''}
+                        ${row.Réponse_D ? `<option value="D">${row.Réponse_D}</option>` : ''}
+                    </select>
+                    <button class="nav-btn" style="--btn-color:var(--violet); width:100%;" onclick="checkDropdown('${bonne}',${i})">Valider</button>`;
+            }
+            else if (format === "DRAGDROP") {
+                quizContent = `
+                    <div class="quiz-title">${row.Titre || "Glissez la bonne étiquette"}${row.Question ? `<br><span style="font-weight:normal;">${row.Question}</span>` : ""}</div>
+                    <div class="drop-zone" id="dz-${i}" ondragover="allowDrop(event)" ondragleave="leaveDrop(event)" ondrop="dropAndCheck(event,'${bonne}',${i})">Déposez la réponse ici</div>
+                    <div class="drag-container" id="drag-container-${i}">
+                        <div class="drag-item" draggable="true" ondragstart="drag(event)" ontouchstart="touchDragStart(event)" ontouchmove="touchDragMove(event)" ontouchend="touchDragEnd(event)" id="drag-${i}-A" data-val="A" data-drop-id="${i}" data-correct="${bonne}">${row.Réponse_A || ""}</div>
+                        <div class="drag-item" draggable="true" ondragstart="drag(event)" ontouchstart="touchDragStart(event)" ontouchmove="touchDragMove(event)" ontouchend="touchDragEnd(event)" id="drag-${i}-B" data-val="B" data-drop-id="${i}" data-correct="${bonne}">${row.Réponse_B || ""}</div>
+                        ${row.Réponse_C ? `<div class="drag-item" draggable="true" ondragstart="drag(event)" ontouchstart="touchDragStart(event)" ontouchmove="touchDragMove(event)" ontouchend="touchDragEnd(event)" id="drag-${i}-C" data-val="C" data-drop-id="${i}" data-correct="${bonne}">${row.Réponse_C}</div>` : ''}
+                        ${row.Réponse_D ? `<div class="drag-item" draggable="true" ondragstart="drag(event)" ontouchstart="touchDragStart(event)" ontouchmove="touchDragMove(event)" ontouchend="touchDragEnd(event)" id="drag-${i}-D" data-val="D" data-drop-id="${i}" data-correct="${bonne}">${row.Réponse_D}</div>` : ''}
+                    </div>`;
+            }
+            else if (format === "TEXTE_LIBRE") {
+                const bonneTexte = (row.Bonne_Réponse || "").trim();
+                quizContent = `
+                    <div class="quiz-title">${row.Titre || row.Question}</div>
+                    <div class="text-libre-wrap">
+                        <input type="text" id="tl-${i}" class="text-libre-input" placeholder="Votre réponse…"
+                            onkeydown="if(event.key==='Enter') checkTexteLibre(${i})"
+                            data-correct="${bonneTexte.replace(/"/g,'&quot;')}">
+                        <button class="text-libre-btn" id="tl-btn-${i}" onclick="checkTexteLibre(${i})">Valider ✓</button>
+                    </div>
+                    ${bonneTexte.includes("|") ? '<div style="font-size:0.85rem;color:var(--texte-sec);margin-top:8px;">💡 Plusieurs réponses acceptées</div>' : ""}`;
+            }
+            else if (format === "PHRASE_TROUS") {
+                const bonneTexte = (row.Bonne_Réponse || "").trim();
+                const question = row.Question || row.Titre || "";
+                let trouIndex = 0;
+                const answers = bonneTexte.split("|").map(a => a.trim());
+                const phraseHtml = question.replace(/___/g, () => {
+                    const ans = (answers[trouIndex] || "").replace(/"/g, "&quot;");
+                    const tid = trouIndex; trouIndex++;
+                    return `<input type="text" class="trou-input" id="trou-${i}-${tid}" data-answer="${ans}" placeholder="  ?  " onkeydown="if(event.key==='Enter') checkPhraseTrous(${i})">`;
+                });
+                quizContent = `<div class="quiz-title">${row.Titre || "Complétez la phrase"}</div>
+                    <div class="phrase-trous">${phraseHtml}</div>
+                    <button class="valider-trous-btn" id="trous-btn-${i}" onclick="checkPhraseTrous(${i})">Valider ✓</button>`;
+            }
+            else { // QCM par défaut
+                quizContent = `
+                    <div class="quiz-title">${row.Titre || row.Question}</div>
+                    <div class="btn-grid" data-correct="${bonne}">
+                        <button class="opt-btn" id="btn-${i}-A" data-id="${i}" data-letter="A" data-correct="${bonne}" onclick="check('A','${bonne}',${i})">A. ${row.Réponse_A || ""}</button>
+                        <button class="opt-btn" id="btn-${i}-B" data-id="${i}" data-letter="B" data-correct="${bonne}" onclick="check('B','${bonne}',${i})">B. ${row.Réponse_B || ""}</button>
+                        ${row.Réponse_C ? `<button class="opt-btn" id="btn-${i}-C" data-id="${i}" data-letter="C" data-correct="${bonne}" onclick="check('C','${bonne}',${i})">C. ${row.Réponse_C}</button>` : ''}
+                        ${row.Réponse_D ? `<button class="opt-btn" id="btn-${i}-D" data-id="${i}" data-letter="D" data-correct="${bonne}" onclick="check('D','${bonne}',${i})">D. ${row.Réponse_D}</button>` : ''}
+                    </div>`;
+            }
+
+            html += `<div class="card-quiz" id="q-card-${i}">
+                ${quizContent}
+                <div id="ex-${i}" class="expli-box"><strong>💡 Explication</strong><br>${row.Explication || "Bien joué !"}</div>
+            </div>`;
+        }
+    });
+
+    app.innerHTML = html || "<p style='text-align:center;'>Aucune donnée trouvée.</p>";
+    scoreBoard.innerHTML = hasQuiz ? `Score : 0 / ${maxQuizScore}` : "";
+}
+
+// --- FONCTIONS DE VALIDATION ---
+
+function check(click, correct, id) {
+    if (answeredQuestions.has(id)) return;
+    const btnClicked = document.getElementById('btn-' + id + '-' + click);
+    if (examMode) {
+        if (examUserAnswers[id]) {
+            const prev = document.getElementById('btn-' + id + '-' + examUserAnswers[id].value);
+            if (prev) prev.classList.remove('selected-exam');
+        }
+        examUserAnswers[id] = { type:'qcm', value:click, correct };
+        if (btnClicked) btnClicked.classList.add('selected-exam');
+        return;
+    }
+    answeredQuestions.add(id);
+    ['A','B','C','D'].forEach(l => { const b = document.getElementById('btn-'+id+'-'+l); if(b) b.disabled = true; });
+    if (click === correct) { currentScore++; btnClicked.classList.add('success'); confetti({particleCount:20, spread:40, origin:{y:0.7}}); }
+    else { btnClicked.classList.add('error'); const bc = document.getElementById('btn-'+id+'-'+correct); if(bc) bc.classList.add('success'); }
+    const expli = document.getElementById('ex-' + id);
+    if(expli) expli.style.display = "block";
+    updateScoreBoard();
+}
+
+function checkDropdown(correct, id) {
+    if (answeredQuestions.has(id)) return;
+    const sel = document.getElementById('sel-' + id);
+    if (!sel.value) { alert("Veuillez sélectionner une réponse !"); return; }
+    if (examMode) { examUserAnswers[id] = {type:'dropdown', value:sel.value, correct}; sel.classList.add('selected-exam'); return; }
+    answeredQuestions.add(id);
+    sel.disabled = true;
+    const expli = document.getElementById('ex-' + id);
+    if (sel.value === correct) { currentScore++; sel.classList.add('success'); confetti({particleCount:20, spread:40, origin:{y:0.7}}); }
+    else { sel.classList.add('error'); if(expli) expli.innerHTML = `<span style="color:#991b1b;">❌ La bonne réponse était <strong>${correct}</strong>.</span><br><br>` + expli.innerHTML; }
+    if(expli) expli.style.display = "block";
+    updateScoreBoard();
+}
+
+function allowDrop(ev) { ev.preventDefault(); ev.currentTarget.classList.add('dragover'); }
+function leaveDrop(ev) { ev.currentTarget.classList.remove('dragover'); }
+function drag(ev) { ev.dataTransfer.setData("elementId", ev.target.id); ev.dataTransfer.setData("value", ev.target.getAttribute("data-val")); }
+
+function dropAndCheck(ev, correct, id) {
+    ev.preventDefault();
+    const dz = ev.currentTarget;
+    dz.classList.remove('dragover');
+    if (answeredQuestions.has(id)) return;
+    const draggedId = ev.dataTransfer.getData("elementId");
+    const draggedVal = ev.dataTransfer.getData("value");
+    if (!draggedId) return;
+    const draggedEl = document.getElementById(draggedId);
+    if (examMode) {
+        const prev = dz.querySelector('.drag-item');
+        if (prev) { const c = document.getElementById('drag-container-'+id); if(c) { prev.classList.remove('selected-exam'); c.appendChild(prev); } }
+        dz.innerHTML = ""; dz.appendChild(draggedEl);
+        dz.classList.add('selected-exam'); draggedEl.classList.add('selected-exam');
+        examUserAnswers[id] = {type:'dragdrop', value:draggedVal, correct};
+        return;
+    }
+    dz.innerHTML = ""; dz.appendChild(draggedEl);
+    answeredQuestions.add(id);
+    const container = document.getElementById('drag-container-' + id);
+    if(container) Array.from(container.children).forEach(c => { c.setAttribute('draggable','false'); c.style.opacity="0.5"; c.style.cursor="not-allowed"; });
+    draggedEl.setAttribute('draggable','false'); draggedEl.style.opacity="1";
+    const expli = document.getElementById('ex-' + id);
+    if (draggedVal === correct) { currentScore++; dz.classList.add('success'); draggedEl.classList.add('success'); confetti({particleCount:20, spread:40, origin:{y:0.7}}); }
+    else { dz.classList.add('error'); draggedEl.classList.add('error'); const ce = document.getElementById('drag-'+id+'-'+correct); if(ce) ce.classList.add('success'); }
+    if(expli) expli.style.display = "block";
+    updateScoreBoard();
+}
+
+function normaliser(str) {
+    return str.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/['']/g,"'");
+}
+
+function checkTexteLibre(id) {
+    if (answeredQuestions.has(id)) return;
+    const input = document.getElementById('tl-' + id);
+    const btn   = document.getElementById('tl-btn-' + id);
+    const expli = document.getElementById('ex-' + id);
+    const userVal = input.value;
+    if (!userVal.trim()) { input.focus(); return; }
+    if (examMode) { examUserAnswers[id] = {type:'texte_libre', value:userVal, correct:input.dataset.correct}; input.style.borderColor='var(--violet)'; input.style.fontWeight='700'; return; }
+    answeredQuestions.add(id); input.disabled = true; btn.disabled = true;
+    const corrects = input.dataset.correct.split("|").map(normaliser);
+    if (corrects.includes(normaliser(userVal))) { input.classList.add('success'); currentScore++; confetti({particleCount:20,spread:40,origin:{y:0.7}}); }
+    else { input.classList.add('error'); if(expli) expli.innerHTML = '<span style="color:#991b1b;">❌ La bonne réponse : <strong>' + input.dataset.correct + '</strong></span><br><br>' + expli.innerHTML; }
+    if(expli) expli.style.display = 'block';
+    updateScoreBoard();
+}
+
+function checkPhraseTrous(id) {
+    if (answeredQuestions.has(id)) return;
+    const btn = document.getElementById('trous-btn-' + id);
+    const expli = document.getElementById('ex-' + id);
+    const inputs = document.querySelectorAll('.trou-input[id^="trou-'+id+'-"]');
+    let allFilled = true;
+    inputs.forEach(inp => { if (!inp.value.trim()) allFilled = false; });
+    if (!allFilled) { inputs.forEach(inp => { if (!inp.value.trim()) inp.focus(); }); return; }
+    if (examMode) {
+        const vals = {}; inputs.forEach(inp => { vals[inp.id] = inp.value; });
+        examUserAnswers[id] = {type:'phrase_trous', values:vals, inputs:Array.from(inputs).map(inp=>({id:inp.id,correct:inp.dataset.answer}))};
+        inputs.forEach(inp => { inp.style.borderBottomColor='var(--violet)'; inp.style.fontWeight='700'; });
+        return;
+    }
+    answeredQuestions.add(id); btn.disabled = true;
+    let allCorrect = true; let nbCorrect = 0;
+    inputs.forEach(inp => {
+        inp.disabled = true;
+        const corrects = inp.dataset.answer.split("|").map(normaliser);
+        if (corrects.includes(normaliser(inp.value))) { inp.classList.add('success'); nbCorrect++; }
+        else { inp.classList.add('error'); allCorrect = false; const hint = document.createElement('div'); hint.style.cssText='font-size:0.8rem;color:#991b1b;text-align:center;margin-top:2px;'; hint.textContent='→ '+inp.dataset.answer; inp.after(hint); }
+    });
+    if (allCorrect) { currentScore++; confetti({particleCount:20,spread:40,origin:{y:0.7}}); }
+    else { if(expli) expli.innerHTML='<span style="color:#991b1b;">❌ '+nbCorrect+' trou(s) correct(s) sur '+inputs.length+'</span><br><br>'+expli.innerHTML; }
+    if(expli) expli.style.display='block';
+    updateScoreBoard();
+}
+
+function updateScoreBoard() {
+    scoreBoard.innerHTML = `Score : ${currentScore} / ${maxQuizScore}`;
+    const activeSection = document.querySelector('.nav-btn.active')?.innerText;
+    if (activeSection) localStorage.setItem(`score_${activeSection}`, `${currentScore} / ${maxQuizScore}`);
+    if (currentScore === 1) unlockTrophy('t-first');
+    if (maxQuizScore > 0) {
+        const ratio = currentScore / maxQuizScore;
+        if (ratio >= 0.5) unlockTrophy('t-half');
+        if (ratio === 1 && answeredQuestions.size === maxQuizScore) unlockTrophy('t-perfect');
+    }
+    if (answeredQuestions.size === maxQuizScore && maxQuizScore > 0) showFinalResult();
+}
+
+function unlockTrophy(tid) {
+    const t = document.getElementById(tid);
+    if (t && !t.classList.contains('unlocked')) { t.classList.add('unlocked'); confetti({particleCount:50,spread:60,origin:{y:0.3}}); }
+}
+
+function showFinalResult() {
+    const percent = Math.round((currentScore / maxQuizScore) * 100);
+    let msg = "", color = "";
+    if(percent===100) { msg="INCROYABLE ! 🏆"; color="#10b981"; unlockTrophy('t-speed'); }
+    else if(percent>=75) { msg="Très bon travail ! ✨"; color="#2563eb"; }
+    else if(percent>=50) { msg="Pas mal, continue ! 👍"; color="#f59e0b"; }
+    else { msg="Il faut encore réviser... 📚"; color="#ef4444"; }
+    finalBox.innerHTML = `<h3>Résultat Final</h3><span class="big-score" style="color:${color}">${currentScore} / ${maxQuizScore}</span><p>${msg}</p><button class="nav-btn" style="--btn-color:var(--violet)" onclick="window.scrollTo({top:0,behavior:'smooth'})">Remonter</button>`;
+    finalBox.style.display = "block";
+    setTimeout(() => finalBox.scrollIntoView({behavior:"smooth"}), 200);
+}
+
+// --- BILAN ---
+function downloadStyledResults() {
+    let scoresHtml = ""; let hasData = false; let totalCorrect = 0; let totalQuestions = 0;
+    sections.forEach(s => {
+        const score = localStorage.getItem(`score_${s.name}`) || "Non évalué";
+        if(score !== "Non évalué") { hasData = true; const parts = score.split(" / "); if(parts.length===2){totalCorrect+=parseInt(parts[0])||0;totalQuestions+=parseInt(parts[1])||0;} }
+        scoresHtml += `<div style="display:flex;justify-content:space-between;padding:10px;border-bottom:1px solid #eee;"><span style="font-weight:bold;color:#475569;">${s.name}</span><span style="color:#7c3aed;font-weight:800;">${score}</span></div>`;
+    });
+    if(!hasData) { alert("Complète au moins un quiz pour générer ton bilan !"); return; }
+    const sur200 = totalQuestions > 0 ? Math.round((totalCorrect/totalQuestions)*200) : 0;
+    const percent = totalQuestions > 0 ? Math.round((totalCorrect/totalQuestions)*100) : 0;
+    let mention="", mentionColor="";
+    if(percent>=90){mention="Très Bien 🏆";mentionColor="#10b981";}else if(percent>=75){mention="Bien ✨";mentionColor="#2563eb";}else if(percent>=60){mention="Assez Bien 👍";mentionColor="#f59e0b";}else{mention="À améliorer 📚";mentionColor="#ef4444";}
+    const totalHtml = `<div style="text-align:center;margin:25px 0;padding:25px;background:linear-gradient(135deg,#7c3aed15,#2563eb15);border-radius:16px;border:3px solid #7c3aed;"><div style="font-size:0.9rem;color:#64748b;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">Score Global</div><div style="font-size:4rem;font-weight:900;color:#7c3aed;line-height:1;">${sur200}<span style="font-size:2rem;color:#94a3b8;"> / 200</span></div><div style="font-size:1.3rem;font-weight:800;color:${mentionColor};margin-top:10px;">${mention}</div></div>`;
+    const docContent = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:'Segoe UI',sans-serif;background:#f1f5f9;padding:40px;display:flex;justify-content:center;}.diploma{background:white;width:600px;padding:50px;border:10px double #7c3aed;}h1{color:#7c3aed;text-align:center;}</style></head><body><div class="diploma"><h1>📰 Le Journalisme</h1><p style="text-align:center;color:#64748b;">Bilan des révisions</p>${totalHtml}<div>${scoresHtml}</div><p style="text-align:center;color:#94a3b8;font-style:italic;margin-top:30px;">Généré le ${new Date().toLocaleString('fr-FR')}</p></div></body></html>`;
+    const blob = new Blob([docContent], {type:'text/html'});
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download='Bilan_Journalisme.html'; a.click();
+}
+
+// --- MODE EXAMEN ---
+function toggleExamMode() { examMode ? exitExamMode() : startExamSetup(); }
+
+function startExamSetup() {
+    const existing = document.getElementById('examSetupPanel');
+    if (existing) { existing.remove(); return; }
+    const activeBtn = document.querySelector('.nav-btn.active');
+    const activeName = activeBtn ? activeBtn.innerText : sections[0].name;
+    let sectionBtns = sections.map(s => `<button class="timer-opt-btn ${s.name===activeName?'selected':''}" onclick="selectExamSection(this,'${s.name}')">${s.name}</button>`).join('');
+    const setupDiv = document.createElement('div');
+    setupDiv.id = 'examSetupPanel'; setupDiv.className = 'exam-timer-setup';
+    setupDiv.innerHTML = `<h3>📝 Mode Examen</h3>
+        <p style="color:var(--texte-sec);margin-bottom:15px;font-size:0.95rem;">Les corrections s'affichent <strong>uniquement à la fin</strong>.</p>
+        <p style="font-weight:700;color:var(--texte);margin-bottom:10px;">📚 Section :</p>
+        <div class="timer-options" id="sectionOptions" style="margin-bottom:20px;">${sectionBtns}</div>
+        <p style="font-weight:700;color:var(--texte);margin-bottom:10px;">⏱️ Durée :</p>
+        <div class="timer-options" id="timerOptions">
+            <button class="timer-opt-btn" onclick="selectDuration(this,10)">10 min</button>
+            <button class="timer-opt-btn selected" onclick="selectDuration(this,30)">30 min</button>
+            <button class="timer-opt-btn" onclick="selectDuration(this,45)">45 min</button>
+            <button class="timer-opt-btn" onclick="selectDuration(this,60)">1 heure</button>
+        </div>
+        <button class="exam-submit-btn" onclick="launchExamMode()" style="max-width:320px;margin:20px auto 0;">🚀 Lancer l'examen</button>
+        <div style="margin-top:12px;"><button onclick="document.getElementById('examSetupPanel').remove()" style="background:none;border:none;color:var(--texte-sec);cursor:pointer;font-size:0.9rem;text-decoration:underline;">Annuler</button></div>`;
+    document.querySelector('.nav-menu').after(setupDiv);
+    setupDiv.scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+function selectExamSection(btn, name) {
+    document.querySelectorAll('#sectionOptions .timer-opt-btn').forEach(b=>b.classList.remove('selected'));
+    btn.classList.add('selected'); selectedExamSection = name;
+}
+function selectDuration(btn, minutes) {
+    document.querySelectorAll('#timerOptions .timer-opt-btn').forEach(b=>b.classList.remove('selected'));
+    btn.classList.add('selected'); selectedExamDuration = minutes;
+}
+
+function launchExamMode() {
+    const setupPanel = document.getElementById('examSetupPanel');
+    if (setupPanel) setupPanel.remove();
+    examMode = true; examUserAnswers = {};
+    document.getElementById('examModeBtn').classList.add('active');
+    document.getElementById('examModeBtn').innerText = '❌ Quitter examen';
+    document.body.classList.add('exam-active');
+    currentScore = 0; answeredQuestions.clear();
+    const targetName = selectedExamSection || (document.querySelector('.nav-btn.active')?.innerText);
+    const targetBtn = Array.from(document.querySelectorAll('.nav-btn')).find(b=>b.innerText===targetName);
+    if (targetName && targetBtn) loadSection(targetName, targetBtn);
+    setTimeout(() => { startExamTimer(); addExamBannerAndSubmitBtn(); }, 500);
+}
+
+function startExamTimer() {
+    examSecondsLeft = selectedExamDuration * 60;
+    updateTimerDisplay();
+    examTimerInterval = setInterval(() => {
+        examSecondsLeft--;
+        updateTimerDisplay();
+        if (examSecondsLeft <= 0) { clearInterval(examTimerInterval); alert('⏰ Temps écoulé !'); submitExam(); }
+    }, 1000);
+}
+function updateTimerDisplay() {
+    const el = document.getElementById('examTimerDisplay');
+    if (!el) return;
+    const m = Math.floor(examSecondsLeft/60), s = examSecondsLeft%60;
+    el.innerText = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    if (examSecondsLeft<=60) el.classList.add('warning'); else el.classList.remove('warning');
+}
+function addExamBannerAndSubmitBtn() {
+    const existing = document.getElementById('examBanner'); if(existing) existing.remove();
+    const banner = document.createElement('div');
+    banner.id = 'examBanner'; banner.className = 'exam-banner';
+    banner.innerHTML = `<span>📝 Mode Examen — ${selectedExamDuration} min</span><span class="exam-timer" id="examTimerDisplay">--:--</span><button onclick="submitExam()" style="background:white;color:#7c3aed;border:none;padding:8px 16px;border-radius:20px;font-weight:800;cursor:pointer;">✅ Terminer</button>`;
+    document.body.insertBefore(banner, document.body.firstChild);
+    updateTimerDisplay();
+    const submitBtn = document.createElement('button');
+    submitBtn.id='examSubmitBtn'; submitBtn.className='exam-submit-btn';
+    submitBtn.innerHTML='✅ Terminer et corriger mon examen'; submitBtn.onclick=submitExam;
+    finalBox.before(submitBtn);
+}
+
+function exitExamMode(keepResults) {
+    examMode = false; clearInterval(examTimerInterval);
+    document.getElementById('examModeBtn').classList.remove('active');
+    document.getElementById('examModeBtn').innerText = '📝 Mode Examen';
+    document.body.classList.remove('exam-active');
+    const banner = document.getElementById('examBanner'); if(banner) banner.remove();
+    const submitBtn = document.getElementById('examSubmitBtn'); if(submitBtn) submitBtn.remove();
+    const setupPanel = document.getElementById('examSetupPanel'); if(setupPanel) setupPanel.remove();
+    if (!keepResults) {
+        const activeBtn = document.querySelector('.nav-btn.active');
+        if (activeBtn) { const name = activeBtn.innerText; loadSection(name, activeBtn); }
+    }
+}
+
+function submitExam() {
+    clearInterval(examTimerInterval);
+    examMode = false;
+    let score = 0; const total = maxQuizScore;
+    Object.entries(examUserAnswers).forEach(([idStr, ans]) => {
+        const id = parseInt(idStr);
+        const expli = document.getElementById('ex-' + id);
+        if (ans.type === 'qcm') {
+            ['A','B','C','D'].forEach(l => { const b=document.getElementById('btn-'+id+'-'+l); if(!b)return; b.disabled=true; b.classList.remove('selected-exam'); if(l===ans.correct)b.classList.add('success'); else if(l===ans.value&&ans.value!==ans.correct)b.classList.add('error'); });
+            if(ans.value===ans.correct) score++;
+        } else if (ans.type === 'dropdown') {
+            const sel = document.getElementById('sel-'+id); if(sel){sel.disabled=true;sel.classList.remove('selected-exam'); if(ans.value===ans.correct){sel.classList.add('success');score++;}else{sel.classList.add('error');if(expli)expli.innerHTML=`<span style="color:#991b1b;">❌ Bonne réponse : <strong>${ans.correct}</strong>.</span><br><br>`+expli.innerHTML;}}
+        } else if (ans.type === 'texte_libre') {
+            const input=document.getElementById('tl-'+id); const btn2=document.getElementById('tl-btn-'+id);
+            if(input){input.disabled=true;if(btn2)btn2.disabled=true; const corrects=ans.correct.split('|').map(normaliser); if(corrects.includes(normaliser(ans.value))){input.classList.add('success');score++;}else{input.classList.add('error');if(expli)expli.innerHTML='<span style="color:#991b1b;">❌ Bonne réponse : <strong>'+ans.correct+'</strong></span><br><br>'+expli.innerHTML;}}
+        } else if (ans.type === 'phrase_trous') {
+            const btn2=document.getElementById('trous-btn-'+id); if(btn2)btn2.disabled=true;
+            let allCorrect2=true; let nb=0;
+            (ans.inputs||[]).forEach(item=>{const inp=document.getElementById(item.id);if(!inp)return;inp.disabled=true;const corrects=item.correct.split('|').map(normaliser);const userVal=ans.values[item.id]||''; if(corrects.includes(normaliser(userVal))){inp.classList.add('success');nb++;}else{inp.classList.add('error');allCorrect2=false;const hint=document.createElement('div');hint.style.cssText='font-size:0.8rem;color:#991b1b;text-align:center;margin-top:2px;';hint.textContent='→ '+item.correct;inp.after(hint);}});
+            if(allCorrect2){score++;}else{if(expli)expli.innerHTML='<span style="color:#991b1b;">❌ '+nb+' trou(s) correct(s) sur '+(ans.inputs||[]).length+'</span><br><br>'+expli.innerHTML;}
+        } else if (ans.type === 'dragdrop') {
+            const dz=document.getElementById('dz-'+id); if(!dz)return;
+            const draggedEl=dz.querySelector('.drag-item'); dz.classList.remove('selected-exam');
+            if(draggedEl)draggedEl.classList.remove('selected-exam');
+            if(ans.value===ans.correct){dz.classList.add('success');if(draggedEl)draggedEl.classList.add('success');score++;}else{dz.classList.add('error');if(draggedEl)draggedEl.classList.add('error');const ce=document.getElementById('drag-'+id+'-'+ans.correct);if(ce)ce.classList.add('success');}
+        }
+        if(expli) expli.style.display='block';
+    });
+    for(let i=0;i<total+50;i++){['A','B','C','D'].forEach(l=>{const b=document.getElementById('btn-'+i+'-'+l);if(b&&!b.disabled)b.disabled=true;});const sel=document.getElementById('sel-'+i);if(sel&&!sel.disabled)sel.disabled=true;}
+    document.querySelectorAll('.expli-box').forEach(e=>e.style.display='block');
+    currentScore = score; scoreBoard.innerHTML = `Score : ${score} / ${total}`;
+    const activeSection = document.querySelector('.nav-btn.active')?.innerText;
+    if(activeSection) localStorage.setItem(`score_${activeSection}`,`${score} / ${total}`);
+    const percent = total>0?Math.round((score/total)*100):0;
+    let msg='',color='';
+    if(percent===100){msg='INCROYABLE ! 🏆 Parfait !';color='#10b981';}else if(percent>=75){msg='Très bon résultat ! ✨';color='#2563eb';}else if(percent>=50){msg='Pas mal, continue ! 👍';color='#f59e0b';}else{msg='Il faut encore réviser... 📚';color='#ef4444';}
+    finalBox.innerHTML=`<h3>📋 Résultat de l'Examen</h3><span class="big-score" style="color:${color}">${score} / ${total}</span><p style="font-size:1.3rem;">${msg}</p><button class="nav-btn" style="--btn-color:var(--violet)" onclick="exitExamMode(true); window.scrollTo({top:0,behavior:'smooth'})">Relire les corrections ↑</button>`;
+    finalBox.style.display='block';
+    const submitBtn=document.getElementById('examSubmitBtn'); if(submitBtn)submitBtn.remove();
+    const banner=document.getElementById('examBanner'); if(banner) banner.innerHTML=`<span>📝 Examen terminé</span><span style="font-weight:800;">${score} / ${total} (${percent}%)</span><span></span>`;
+    setTimeout(()=>finalBox.scrollIntoView({behavior:'smooth'}),200);
+    if(percent===100) confetti({particleCount:150,spread:90,origin:{y:0.4}});
+}
+
+// --- DRAG & DROP TACTILE ---
+let touchDragEl=null, touchClone=null, touchOffsetX=0, touchOffsetY=0;
+
+function touchDragStart(ev) {
+    const el=ev.currentTarget; const id=parseInt(el.getAttribute('data-drop-id'));
+    if(!examMode&&answeredQuestions.has(id)) return;
+    touchDragEl=el; const touch=ev.touches[0]; const rect=el.getBoundingClientRect();
+    touchOffsetX=touch.clientX-rect.left; touchOffsetY=touch.clientY-rect.top;
+    touchClone=el.cloneNode(true);
+    touchClone.style.cssText=`position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;z-index:9999;opacity:0.85;pointer-events:none;transform:scale(1.05) rotate(-2deg);transition:none;margin:0;box-shadow:0 8px 25px rgba(0,0,0,0.25);`;
+    document.body.appendChild(touchClone); el.style.opacity='0.35'; ev.preventDefault();
+}
+function touchDragMove(ev) {
+    if(!touchClone) return; const touch=ev.touches[0];
+    touchClone.style.left=(touch.clientX-touchOffsetX)+'px'; touchClone.style.top=(touch.clientY-touchOffsetY)+'px';
+    document.querySelectorAll('.drop-zone').forEach(dz=>dz.classList.remove('dragover'));
+    const elUnder=getElementUnderTouch(touch.clientX,touch.clientY);
+    if(elUnder?.classList.contains('drop-zone')) elUnder.classList.add('dragover');
+    ev.preventDefault();
+}
+function touchDragEnd(ev) {
+    if(!touchClone||!touchDragEl) return;
+    const touch=ev.changedTouches[0];
+    touchClone.remove(); touchClone=null; touchDragEl.style.opacity='1';
+    document.querySelectorAll('.drop-zone').forEach(dz=>dz.classList.remove('dragover'));
+    const elUnder=getElementUnderTouch(touch.clientX,touch.clientY);
+    if(elUnder?.classList.contains('drop-zone')) {
+        const correct=touchDragEl.getAttribute('data-correct'); const val=touchDragEl.getAttribute('data-val');
+        const id=parseInt(touchDragEl.getAttribute('data-drop-id')); const dropId=elUnder.id.replace('dz-','');
+        if(parseInt(dropId)===id) {
+            if(examMode) {
+                const prev=elUnder.querySelector('.drag-item');
+                if(prev){const c=document.getElementById('drag-container-'+id);if(c){prev.classList.remove('selected-exam');prev.style.opacity='1';c.appendChild(prev);}}
+                elUnder.innerHTML=''; elUnder.appendChild(touchDragEl); elUnder.classList.add('selected-exam'); touchDragEl.classList.add('selected-exam');
+                examUserAnswers[id]={type:'dragdrop',value:val,correct};
+            } else {
+                if(answeredQuestions.has(id)) return;
+                elUnder.innerHTML=''; elUnder.appendChild(touchDragEl);
+                const container=document.getElementById('drag-container-'+id);
+                if(container) Array.from(container.children).forEach(c=>{c.setAttribute('draggable','false');c.style.opacity='0.5';c.style.cursor='not-allowed';c.ontouchstart=null;});
+                touchDragEl.setAttribute('draggable','false'); touchDragEl.style.opacity='1'; touchDragEl.ontouchstart=null;
+                if(val===correct){currentScore++;elUnder.classList.add('success');touchDragEl.classList.add('success');confetti({particleCount:20,spread:40,origin:{y:0.7}});}
+                else{elUnder.classList.add('error');touchDragEl.classList.add('error');const ce=document.getElementById('drag-'+id+'-'+correct);if(ce)ce.classList.add('success');}
+                answeredQuestions.add(id);
+                const expli=document.getElementById('ex-'+id); if(expli)expli.style.display='block';
+                updateScoreBoard();
+            }
+        }
+    }
+    touchDragEl=null;
+}
+function getElementUnderTouch(x,y) {
+    if(touchClone) touchClone.style.display='none';
+    let el=document.elementFromPoint(x,y);
+    if(touchClone) touchClone.style.display='';
+    let current=el;
+    while(current&&current!==document.body){if(current.classList&&current.classList.contains('drop-zone'))return current;current=current.parentElement;}
+    return el;
+}
+
+// ==========================================
+// --- ENVOI DES SCORES ---
+// ==========================================
+
+// 📧 Adresse email du professeur — modifiez cette ligne
+const TEACHER_EMAIL = "grandnimportequoi76@gmail.com";
+
+const QUIZ_SECTIONS_NAMES = sections.map(s => s.name);
+
+function openSendModal() {
+    // Construire le récapitulatif des scores
+    let scoresHtml = '';
+    let totalCorrect = 0, totalQuestions = 0;
+    let sectionsCompleted = 0;
+
+    QUIZ_SECTIONS_NAMES.forEach(name => {
+        const score = localStorage.getItem('score_' + name) || null;
+        const done = score !== null;
+        if (done) {
+            sectionsCompleted++;
+            const parts = score.split(' / ');
+            if (parts.length === 2) {
+                totalCorrect   += parseInt(parts[0]) || 0;
+                totalQuestions += parseInt(parts[1]) || 0;
+            }
+        }
+        scoresHtml += `
+            <div class="score-line">
+                <span>${name}</span>
+                <span class="score-val ${done ? 'score-done' : 'score-pending'}">${done ? score : 'Non complété'}</span>
+            </div>`;
+    });
+
+    const pct = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
+    const sur100 = `${totalCorrect} / ${totalQuestions} (${pct}%)`;
+
+    scoresHtml += `
+        <div class="score-line score-total" style="margin-top:8px; padding-top:12px; border-top: 2px solid var(--card-border); border-bottom:none;">
+            <span>📊 Score global</span>
+            <span style="color:var(--violet)">${totalQuestions > 0 ? sur100 : '—'}</span>
+        </div>`;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.id = 'sendModal';
+    overlay.innerHTML = `
+        <div class="modal-box">
+            <h3>📤 Envoyer mes résultats</h3>
+            <p>Entrez votre prénom et nom, puis choisissez comment envoyer vos scores au professeur.</p>
+
+            <label class="modal-input-label" for="studentName">Votre prénom et nom</label>
+            <input type="text" class="modal-input" id="studentName"
+                placeholder="ex : Marie Dupont"
+                onkeydown="if(event.key==='Enter') sendByEmail()">
+
+            <div class="modal-scores-preview">${scoresHtml}</div>
+
+            <div class="modal-btn-row" style="flex-direction:column; gap:10px;">
+                <button class="modal-btn-primary" id="sendEmailBtn" onclick="sendByEmail()">
+                    ✉️ Ouvrir dans ma messagerie
+                </button>
+                <button class="modal-btn-primary" onclick="copyToClipboard()" style="background:var(--vert);">
+                    📋 Copier mes résultats
+                </button>
+                <button class="modal-btn-secondary" onclick="document.getElementById('sendModal').remove()">
+                    Fermer
+                </button>
+            </div>
+
+            <div class="send-status" id="sendStatus"></div>
+            <div class="copy-confirm" id="copyConfirm">✅ Résultats copiés ! Collez-les dans un message à votre professeur.</div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    document.getElementById('studentName').focus();
+}
+
+function getScoreText(name) {
+    // Build plain-text summary for email/clipboard
+    const now = new Date().toLocaleString('fr-FR');
+    let lines = [];
+    lines.push('=== Résultats — Le Journalisme ===');
+    lines.push('Élève : ' + name);
+    lines.push('Date  : ' + now);
+    lines.push('');
+
+    let totalCorrect = 0, totalQuestions = 0;
+    QUIZ_SECTIONS_NAMES.forEach(sname => {
+        const score = localStorage.getItem('score_' + sname) || 'Non complété';
+        lines.push(sname + ' : ' + score);
+        if (score !== 'Non complété') {
+            const parts = score.split(' / ');
+            if (parts.length === 2) {
+                totalCorrect   += parseInt(parts[0]) || 0;
+                totalQuestions += parseInt(parts[1]) || 0;
+            }
+        }
+    });
+
+    const pct = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
+    lines.push('');
+    lines.push('Score global : ' + totalCorrect + ' / ' + totalQuestions + ' (' + pct + '%)');
+    return lines.join('\n');
+}
+
+function sendByEmail() {
+    const name = (document.getElementById('studentName')?.value || '').trim();
+    const input = document.getElementById('studentName');
+    if (!name) {
+        input.style.borderColor = '#ef4444';
+        input.focus();
+        return;
+    }
+    input.style.borderColor = '';
+
+    const text = getScoreText(name);
+    const subject = encodeURIComponent('[Journalisme] Résultats de ' + name);
+    const body    = encodeURIComponent(text);
+    const mailto  = 'mailto:' + TEACHER_EMAIL + '?subject=' + subject + '&body=' + body;
+
+    // Ouvrir le client mail
+    window.location.href = mailto;
+
+    // Confirmation visuelle
+    const status = document.getElementById('sendStatus');
+    if (status) {
+        status.className = 'send-status ok';
+        status.innerHTML = '✅ Votre messagerie devrait s\'ouvrir avec l\'email prêt à envoyer.<br><span style="font-size:0.85rem;font-weight:400;">Si rien ne se passe, utilisez le bouton <strong>Copier</strong> et collez dans un email.</span>';
+        status.style.display = 'block';
+    }
+}
+
+function copyToClipboard() {
+    const name = (document.getElementById('studentName')?.value || '').trim();
+    const input = document.getElementById('studentName');
+    if (!name) {
+        input.style.borderColor = '#ef4444';
+        input.focus();
+        return;
+    }
+    input.style.borderColor = '';
+
+    const text = getScoreText(name);
+    navigator.clipboard.writeText(text).then(() => {
+        const confirm = document.getElementById('copyConfirm');
+        const status  = document.getElementById('sendStatus');
+        if (confirm) confirm.style.display = 'block';
+        if (status)  status.style.display  = 'none';
+    }).catch(() => {
+        // Fallback textarea pour anciens navigateurs
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.cssText = 'position:fixed;top:-999px;left:-999px;';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+        const confirm = document.getElementById('copyConfirm');
+        if (confirm) confirm.style.display = 'block';
+    });
+}
+
+// ==========================================
+window.onscroll = function() {
+    const btn=document.getElementById("backToTop");
+    if(document.documentElement.scrollTop>300) btn.style.display="block"; else btn.style.display="none";
+};
+
+// Chargement initial
+window.onload = () => {
+    const firstBtn = menu.firstElementChild;
+    if (firstBtn) loadSection(sections[0].name, firstBtn);
+};
+</script>
+</body>
+</html>
