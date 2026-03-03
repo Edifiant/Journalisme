@@ -795,6 +795,30 @@ body.exam-active { padding-top: calc(var(--topbar-h) + 48px + 44px); }
 .send-status.ok  { background: color-mix(in srgb, var(--accent3) 12%, var(--surface)); color: var(--accent3); }
 .send-status.err { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); color: var(--accent); }
 .copy-confirm { display: none; margin-top: 10px; padding: 12px; background: color-mix(in srgb, var(--accent3) 10%, var(--surface)); color: var(--accent3); border-radius: var(--radius); font-size: 0.85rem; font-weight: 700; text-align: center; }
+.result-code-box {
+    background: var(--surface2);
+    border: 2px dashed var(--accent2);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin: 14px 0;
+    font-family: 'Courier New', monospace;
+    font-size: 0.82rem;
+    color: var(--ink);
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-all;
+    user-select: all;
+}
+.result-code-steps {
+    background: color-mix(in srgb, var(--accent2) 8%, var(--surface));
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    margin-bottom: 14px;
+    font-size: 0.84rem;
+    color: var(--ink2);
+    line-height: 1.7;
+}
+.result-code-steps strong { color: var(--ink); display: block; margin-bottom: 4px; }
 
 /* ===================================================
    BACK TO TOP
@@ -922,7 +946,11 @@ const DATA = {
     { Type:"QCM", Titre:"Présomption d'innocence", Question:"En France, une personne accusée d'un crime est considérée comme :", Réponse_A:"Coupable tant qu'elle n'a pas prouvé son innocence", Réponse_B:"Innocente tant qu'un tribunal ne l'a pas déclarée coupable", Réponse_C:"Automatiquement condamnée si la presse en parle", Réponse_D:"Interdite de s'exprimer dans les médias", Bonne_Réponse:"B", Explication:"La présomption d'innocence est un droit fondamental : toute personne est innocente jusqu'à preuve du contraire. Les journalistes doivent en tenir compte : ils ne peuvent pas traiter quelqu'un de coupable avant un jugement." },
     { Type:"TEXTE_LIBRE", Titre:"Comment s'appelle un journaliste indépendant ?", Question:"Comment appelle-t-on un journaliste qui n'est pas salarié d'un journal et qui est payé à chaque article qu'il écrit ?", Bonne_Réponse:"pigiste|un pigiste", Explication:"Un pigiste est un journaliste indépendant payé à la 'pige', c'est-à-dire à l'article. Il peut travailler pour plusieurs journaux différents. Beaucoup de journalistes commencent leur carrière comme pigistes." },
     { Type:"DRAGDROP", Titre:"Liberté de la presse", Question:"Faites glisser : la liberté de la presse, c'est le droit de :", Réponse_A:"Publier n'importe quoi sans aucune règle", Réponse_B:"Interdire aux journalistes de travailler", Réponse_C:"Informer le public librement et sans censure du gouvernement", Réponse_D:"Vendre des journaux dans la rue", Bonne_Réponse:"C", Explication:"La liberté de la presse, c'est le droit pour les journalistes d'informer sans être censurés ou arrêtés par le gouvernement. Ce droit existe en France depuis 1789 et est protégé par la loi. Dans certains pays, cette liberté n'existe pas." },
-    { Type:"QCM", Titre:"Info ou avis ?", Question:"Dans un journal, quel type d'article exprime l'opinion du journal sur un sujet d'actualité ?", Réponse_A:"La brève", Réponse_B:"Le reportage", Réponse_C:"L'éditorial", Réponse_D:"La dépêche", Bonne_Réponse:"C", Explication:"L'éditorial (ou 'édito') est un article où le journal donne son point de vue sur un sujet. Contrairement à un article d'information (qui rapporte des faits), l'éditorial dit ce que le journal pense. Il est souvent écrit par le rédacteur en chef." }
+    { Type:"QCM", Titre:"Info ou avis ?", Question:"Dans un journal, quel type d'article exprime l'opinion du journal sur un sujet d'actualité ?", Réponse_A:"La brève", Réponse_B:"Le reportage", Réponse_C:"L'éditorial", Réponse_D:"La dépêche", Bonne_Réponse:"C", Explication:"L'éditorial (ou 'édito') est un article où le journal donne son point de vue sur un sujet. Contrairement à un article d'information (qui rapporte des faits), l'éditorial dit ce que le journal pense. Il est souvent écrit par le rédacteur en chef." },
+    { Type:"QCM", Titre:"Qui peut être journaliste ?", Question:"En France, pour devenir journaliste professionnel, il faut :", Réponse_A:"Avoir plus de 40 ans", Réponse_B:"Travailler pour un journal payant uniquement", Réponse_C:"Exercer le journalisme comme activité principale et en tirer ses revenus", Réponse_D:"Avoir l'autorisation du gouvernement", Bonne_Réponse:"C", Explication:"En France, un journaliste professionnel est quelqu'un dont le journalisme est le métier principal et la source de revenus. On lui délivre alors une 'carte de presse', qui prouve officiellement son statut. N'importe qui peut écrire sur internet, mais tout le monde n'est pas journaliste professionnel !" },
+    { Type:"PHRASE_TROUS", Titre:"Le rôle des images", Question:"En journalisme, une photo publiée sans son contexte peut ___ les lecteurs sur la réalité d'une situation.", Bonne_Réponse:"tromper|induire en erreur|manipuler", Explication:"Une photo peut être vraie mais utilisée dans un mauvais contexte pour faire croire autre chose. Par exemple, une vieille photo d'une catastrophe publiée pour illustrer un événement récent différent. C'est pourquoi il faut toujours regarder la légende d'une photo !" },
+    { Type:"DRAGDROP", Titre:"Trouver la bonne source", Question:"Faites glisser : pour vérifier une information sur un tremblement de terre, quelle source est la plus fiable ?", Réponse_A:"Un message anonyme sur TikTok", Réponse_B:"Le compte d'un ami sur Instagram", Réponse_C:"Le site de l'AFP ou d'un grand journal d'information", Réponse_D:"Un forum de discussion non identifié", Bonne_Réponse:"C", Explication:"Pour vérifier une information importante, il faut se tourner vers des sources fiables et identifiées : les grandes agences de presse (AFP, Reuters), les sites des journaux sérieux ou les sites officiels (gouvernement, scientifiques…). Un post anonyme sur les réseaux sociaux n'est jamais une source suffisante." },
+    { Type:"TEXTE_LIBRE", Titre:"Le droit de réponse", Question:"Si un journal publie une information fausse sur une personne, cette personne a le droit de demander la publication d'une correction. Comment appelle-t-on ce droit ?", Bonne_Réponse:"droit de réponse|le droit de réponse|droit de rectification", Explication:"Le droit de réponse est un droit légal en France : toute personne citée dans un article peut demander au journal de publier sa version des faits ou une correction. C'est une façon de rééquilibrer l'information et de protéger les personnes contre les erreurs ou les propos injustes." }
 ],
 
 "📰 Les types de contenus": [
@@ -1034,7 +1062,7 @@ const SECTIONS = [
     { name:"👥 Les métiers de la presse",  color:"#0a6b6b" }
 ];
 
-const TEACHER_EMAIL = "grandnimportequoi76@gmail.com";
+const SHEET_URL = "https://script.google.com/macros/s/AKfycbzhBl1pFVhxwV8oeC57QguuiqaRebKI_FIdG4SZlr06vlXhkSiqan7e-Ih_tTdDuciGtw/exec";
 
 // ================================================
 // STATE
@@ -1750,79 +1778,78 @@ function downloadResults(){
 }
 
 function openSendModal(){
-    let scoresHtml='',tot=0,totQ=0;
-    SECTIONS.forEach(s=>{
-        const sc=localStorage.getItem('score_'+s.name)||null;
-        const done=sc!==null;
-        if(done){const p=(sc||'').split(' / ');if(p.length===2){tot+=parseInt(p[0])||0;totQ+=parseInt(p[1])||0;}}
-        scoresHtml+=`<div class="score-row"><span style="color:var(--ink2)">${s.name}</span><span class="${done?'score-val-done':'score-val-pending'}">${done?sc:'Non complété'}</span></div>`;
-    });
-    const pct=totQ>0?Math.round((tot/totQ)*100):0;
-    const global=totQ>0?`${tot} / ${totQ} (${pct}%)`:'—';
-    scoresHtml+=`<div class="score-row"><span>📊 Score global</span><span class="score-val-total">${global}</span></div>`;
-
     const overlay=document.createElement('div');
     overlay.className='modal-overlay'; overlay.id='sendModal';
     overlay.innerHTML=`<div class="modal-box">
         <h3>📤 Envoyer mes résultats</h3>
-        <p>Entrez votre prénom et nom, puis envoyez vos scores à votre professeur.</p>
-        <label class="modal-input-label" for="studentName">Votre prénom et nom</label>
-        <input type="text" class="modal-input" id="studentName" placeholder="ex : Marie Dupont" onkeydown="if(event.key==='Enter')sendEmail()">
-        <div class="modal-scores">${scoresHtml}</div>
+        <p>Écris ton prénom et ton nom, puis clique sur le bouton. Tes résultats seront envoyés directement au professeur !</p>
+        <label class="modal-input-label" for="studentName">Ton prénom et ton nom</label>
+        <input type="text" class="modal-input" id="studentName" placeholder="ex : Marie Dupont" onkeydown="if(event.key==='Enter')sendToSheet()">
         <div class="modal-btns">
-            <button class="modal-btn-prim" onclick="sendEmail()">✉️ Ouvrir dans ma messagerie</button>
-            <button class="modal-btn-prim green" onclick="copyScore()">📋 Copier mes résultats</button>
+            <button class="modal-btn-prim green" id="sendSheetBtn" onclick="sendToSheet()">🚀 Envoyer au professeur</button>
             <button class="modal-btn-sec" onclick="document.getElementById('sendModal').remove()">Fermer</button>
         </div>
         <div class="send-status" id="sendStatus"></div>
-        <div class="copy-confirm" id="copyConfirm">✅ Résultats copiés ! Collez-les dans un message à votre professeur.</div>
     </div>`;
     document.body.appendChild(overlay);
     overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove();});
     document.getElementById('studentName').focus();
 }
 
-function getScoreText(name){
-    const now=new Date().toLocaleString('fr-FR');
-    let lines=['=== Résultats — Le Journalisme ===','Élève : '+name,'Date  : '+now,''];
-    let tot=0,totQ=0;
-    SECTIONS.forEach(s=>{
-        const sc=localStorage.getItem('score_'+s.name)||'Non complété';
-        lines.push(s.name+' : '+sc);
-        if(sc!=='Non complété'){const p=sc.split(' / ');if(p.length===2){tot+=parseInt(p[0])||0;totQ+=parseInt(p[1])||0;}}
+function sendToSheet(){
+    const name = (document.getElementById('studentName')?.value||'').trim();
+    const st = document.getElementById('sendStatus');
+    const btn = document.getElementById('sendSheetBtn');
+    if(!name){
+        document.getElementById('studentName').style.borderColor='var(--accent)';
+        document.getElementById('studentName').focus();
+        return;
+    }
+    document.getElementById('studentName').style.borderColor='';
+
+    // Collecte des scores
+    const scores = {};
+    SECTIONS.forEach(s => {
+        const sc = localStorage.getItem('score_'+s.name);
+        if(sc) scores[s.name] = sc;
     });
-    const pct=totQ>0?Math.round((tot/totQ)*100):0;
-    lines.push('','Score global : '+tot+' / '+totQ+' ('+pct+'%)');
-    return lines.join('\n');
+
+    // UI : chargement
+    btn.disabled = true;
+    btn.textContent = '⏳ Envoi en cours…';
+    st.className='send-status';
+    st.style.display='none';
+
+    fetch(SHEET_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, scores })
+    })
+    .then(() => {
+        btn.textContent = '✅ Envoyé !';
+        btn.style.background = 'var(--accent3)';
+        st.className = 'send-status ok';
+        st.innerHTML = '✅ Résultats envoyés au professeur avec succès !<br><span style="font-weight:400;font-size:.8rem">Tu peux fermer cette fenêtre.</span>';
+        st.style.display = 'block';
+        // Fermeture auto après 3s
+        setTimeout(()=>{
+            const m = document.getElementById('sendModal');
+            if(m) m.remove();
+        }, 3000);
+    })
+    .catch(() => {
+        btn.disabled = false;
+        btn.textContent = '🚀 Envoyer au professeur';
+        st.className = 'send-status err';
+        st.innerHTML = '❌ Erreur de connexion. Vérifie ta connexion internet et réessaie.';
+        st.style.display = 'block';
+    });
 }
 
-function sendEmail(){
-    const name=(document.getElementById('studentName')?.value||'').trim();
-    if(!name){document.getElementById('studentName').style.borderColor='var(--accent)';document.getElementById('studentName').focus();return;}
-    document.getElementById('studentName').style.borderColor='';
-    const sub=encodeURIComponent('[Journalisme] Résultats de '+name);
-    const body=encodeURIComponent(getScoreText(name));
-    window.location.href='mailto:'+TEACHER_EMAIL+'?subject='+sub+'&body='+body;
-    const st=document.getElementById('sendStatus');
-    st.className='send-status ok';
-    st.innerHTML='✅ Votre messagerie devrait s\'ouvrir.<br><span style="font-weight:400;font-size:.8rem">Si rien ne se passe, utilisez le bouton Copier.</span>';
-    st.style.display='block';
-}
 
-function copyScore(){
-    const name=(document.getElementById('studentName')?.value||'').trim();
-    if(!name){document.getElementById('studentName').style.borderColor='var(--accent)';document.getElementById('studentName').focus();return;}
-    document.getElementById('studentName').style.borderColor='';
-    const text=getScoreText(name);
-    navigator.clipboard.writeText(text).then(()=>{
-        document.getElementById('copyConfirm').style.display='block';
-        document.getElementById('sendStatus').style.display='none';
-    }).catch(()=>{
-        const ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;top:-999px;left:-999px;';
-        document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();
-        document.getElementById('copyConfirm').style.display='block';
-    });
-}
+
+// sendEmail et copyScore remplacés par copyCode/buildResultCode
 
 // ================================================
 // SCROLL & INIT
