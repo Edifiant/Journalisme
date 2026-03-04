@@ -1797,22 +1797,15 @@ function openSendModal(){
 }
 
 function sendToSheet(){
-    const name = (document.getElementById('studentName')?.value||'').trim();
+    const eleve = (document.getElementById('studentName')?.value||'').trim();
     const st = document.getElementById('sendStatus');
     const btn = document.getElementById('sendSheetBtn');
-    if(!name){
+    if(!eleve){
         document.getElementById('studentName').style.borderColor='var(--accent)';
         document.getElementById('studentName').focus();
         return;
     }
     document.getElementById('studentName').style.borderColor='';
-
-    // Collecte des scores
-    const scores = {};
-    SECTIONS.forEach(s => {
-        const sc = localStorage.getItem('score_'+s.name);
-        if(sc) scores[s.name] = sc;
-    });
 
     // UI : chargement
     btn.disabled = true;
@@ -1820,31 +1813,51 @@ function sendToSheet(){
     st.className='send-status';
     st.style.display='none';
 
-    fetch(SHEET_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, scores })
-    })
-    .then(() => {
+    // Iframe cible invisible
+    const iframeName = 'sheetTarget_' + Date.now();
+    const iframe = document.createElement('iframe');
+    iframe.setAttribute('name', iframeName);
+    iframe.style.cssText = 'display:none;position:fixed;top:-999px;left:-999px;width:1px;height:1px;';
+    document.body.appendChild(iframe);
+
+    // Formulaire POST
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = SHEET_URL;
+    form.target = iframeName;
+    form.style.cssText = 'display:none;position:fixed;top:-999px;';
+
+    // Champ élève (on évite "name" qui est réservé)
+    const addField = (k, v) => {
+        const inp = document.createElement('input');
+        inp.type = 'hidden';
+        inp.name = k;
+        inp.value = v;
+        form.appendChild(inp);
+    };
+
+    addField('eleve', eleve);
+
+    // Scores depuis localStorage — avec trim() pour éviter les espaces parasites
+    SECTIONS.forEach(s => {
+        const key = 'score_' + s.name.trim();
+        const sc = localStorage.getItem(key) || localStorage.getItem('score_'+s.name) || '—';
+        addField('score_' + s.name, sc);
+    });
+
+    document.body.appendChild(form);
+    form.submit();
+
+    // Feedback après délai (no-cors = pas de réponse lisible)
+    setTimeout(() => {
         btn.textContent = '✅ Envoyé !';
         btn.style.background = 'var(--accent3)';
         st.className = 'send-status ok';
-        st.innerHTML = '✅ Résultats envoyés au professeur avec succès !<br><span style="font-weight:400;font-size:.8rem">Tu peux fermer cette fenêtre.</span>';
+        st.innerHTML = '✅ Résultats envoyés au professeur !<br><span style="font-weight:400;font-size:.8rem">Tu peux fermer cette fenêtre.</span>';
         st.style.display = 'block';
-        // Fermeture auto après 3s
-        setTimeout(()=>{
-            const m = document.getElementById('sendModal');
-            if(m) m.remove();
-        }, 3000);
-    })
-    .catch(() => {
-        btn.disabled = false;
-        btn.textContent = '🚀 Envoyer au professeur';
-        st.className = 'send-status err';
-        st.innerHTML = '❌ Erreur de connexion. Vérifie ta connexion internet et réessaie.';
-        st.style.display = 'block';
-    });
+        form.remove();
+        setTimeout(()=>{ iframe.remove(); const m=document.getElementById('sendModal'); if(m)m.remove(); }, 3000);
+    }, 1500);
 }
 
 
